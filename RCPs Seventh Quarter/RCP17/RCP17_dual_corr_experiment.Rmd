@@ -1,0 +1,198 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+### This notebook conducts an experiment to induce det to det correlation and week to week corr in RCP17 data.
+
+```{r}
+
+source("helper_functions.R")
+
+
+# code block to import det to det correlations and getting them into matrix form.
+raw_corr_file_names <- list.files(path = str_c(getwd(), "/RCP17data/RCP17_detector_spearman_correlations")) #get the correlation file names in the data folder
+corr_months <- str_split(raw_corr_file_names, "_") %>% sapply(function (x) x[1]) %>% unique #extracting month names from file names
+
+  det_to_det_train_corr_leave_list <- list()
+  det_to_det_train_corr_noleave_list <- list()
+  #loop for reading in the correlation files of leave and no leave group and making positive definite correlation matrices of them
+  for (month in corr_months){
+    corr_vect <- suppressMessages(read_csv(str_c(getwd(), "/RCP17data/RCP17_detector_spearman_correlations/", month, "_Correlations_Leave.csv")))$`Spearman Correlation` %>% as.numeric
+    det_to_det_corr <- vec2symmat(invec = corr_vect)
+    det_to_det_corr <- round(det_to_det_corr, 10)
+    det_to_det_corr[is.na(det_to_det_corr)] <- 0
+    print(isSymmetric(det_to_det_corr))
+    print(is.positive.definite(det_to_det_corr))
+    if (is.positive.definite(det_to_det_corr) == FALSE){
+      det_to_det_corr <- nearPD(det_to_det_corr) %>% .$mat %>% as.matrix
+      diag(det_to_det_corr) <- 1
+    }
+    print(is.positive.definite(det_to_det_corr))
+    det_to_det_train_corr_leave_list[[month]] <- det_to_det_corr
+    
+    
+    corr_vect <- suppressMessages(read_csv(str_c(getwd(), "/RCP17data/RCP17_detector_spearman_correlations/", month, "_Correlations_NoLeave.csv")))$`Spearman Correlation` %>% as.numeric
+    det_to_det_corr <- vec2symmat(invec = corr_vect)
+    det_to_det_corr <- round(det_to_det_corr, 10)
+    det_to_det_corr[is.na(det_to_det_corr)] <- 0
+    print(isSymmetric(det_to_det_corr))
+    print(is.positive.definite(det_to_det_corr))
+    if (is.positive.definite(det_to_det_corr) == FALSE){
+      det_to_det_corr <- nearPD(det_to_det_corr) %>% .$mat %>% as.matrix
+      diag(det_to_det_corr) <- 1
+    }
+    print(is.positive.definite(det_to_det_corr))
+    det_to_det_train_corr_noleave_list[[month]] <- det_to_det_corr
+    
+  } # end of correlations loop
+
+det_train_corr_noleave_chol_decomp_list <- lapply(det_to_det_train_corr_noleave_list, chol)
+det_train_corr_leave_chol_decomp_list <- lapply(det_to_det_train_corr_leave_list, chol)
+  
+```
+
+```{r}
+all_detectors <- c("001a","002a","002b","002c","002d","003a","004a","004b","004c","004d","005a","006a","006b","006c","006d","007a","008a","008b","008c","008d","009a","010a","011a","011b")
+time_corr_mat <- suppressMessages(read_csv(str_c(getwd(), "/RCP17data/RCP17_time_spearman_correlations/Time_Correlations_Spearman.csv"), skip = 1, col_names = F))
+time_corr_mat[,1] <- NULL #drop first column
+time_corr_train_list <- list()
+row_counter <- 0
+  #loop for reading in the correlation file of time to time correlation and making positive definite correlation matrices of each of the detectors
+  for (det in all_detectors){
+    row_counter <- row_counter+1
+    time_corr <- vec2symmat(invec = as.numeric(time_corr_mat[row_counter,]))
+    time_corr <- round(time_corr, 10)
+    time_corr[is.na(time_corr)] <- 0
+    print(isSymmetric(time_corr))
+    print(is.positive.definite(time_corr))
+    if (is.positive.definite(time_corr) == FALSE){
+      time_corr <- nearPD(time_corr) %>% .$mat %>% as.matrix
+      diag(time_corr) <- 1
+    }
+    print(is.positive.definite(time_corr))
+    time_corr_train_list[[det]] <- time_corr
+    
+  } # end of correlations loop
+
+train_time_corr_chol_decomp_list <- lapply(time_corr_train_list, chol)
+
+```
+
+```{r}
+number_of_people_in_org <- as.integer(lapply(list_of_all_detector_samples_noleave_train, nrow))+as.integer(lapply(list_of_all_detector_samples_leave_train, nrow))
+highest_num_of_people <- sort(number_of_people_in_org, decreasing = T)[1]
+gaussian_iids_list <- list()
+for (det in all_detectors){
+  temp_list <- list()
+  for (m in 1:length(given_months)){
+    temp_list[[m]] <- rnorm(n = highest_num_of_people) %>% as.data.frame
+  }
+gaussian_iids_list[[det]] <- bind_cols(temp_list) %>% as.matrix #gaussian iids for one detector across given months
+}
+
+time_correlated_gauss_samples_list <- lapply(1:total_num_detectors,function(i,m,v){m[[i]]%*%v[[i]]},m=gaussian_iids_list,v=train_time_corr_chol_decomp_list)
+
+
+
+
+```
+
+
+### Check the pattern of correlation between detectors across months
+```{r}
+detector_to_check <- 2
+for (det in 1:total_num_detectors){
+
+corr_of_dets_over_time <- lapply(1:length(given_months), function(i,l,d1,d2){l[[i]][d1,d2]}, l=, d1=detector_to_check, d2=det) %>% as.numeric #change value of d1 and d2 to change the detectors
+
+plot(corr_of_dets_over_time, ylim=c(-1,1), type="l")
+
+}
+print(all_detectors[detector_to_check])
+
+```
+
+```{r}
+det_to_det_train_corr_noleave_list[["2015-11"]] %>% View
+```
+
+### use the existing detector correlated data generated from RCP17_Model_12-20.R and following code induces time to time correlations.
+```{r}
+all_months_pop_1 <- read_csv("populations/all_months_pop_1.csv")
+train_pop_data <- all_months_pop_1 %>% filter(month %in% given_months)
+
+train_pop_list <- split(train_pop_data , f = train_pop_data$month)
+#train_pop_list <- lapply(train_pop_list, function(df){subset(df, select=-c(uid,label,month))})
+pop_sizes <- lapply(train_pop_list, function(df){nrow(df)}) %>% as.numeric
+avg_pop_size <- mean(pop_sizes) %>% round
+#loop to over-sample and under-sample populations to hav equal length populations across months
+for (item in names(train_pop_list)){
+  if (nrow(train_pop_list[[item]]) < avg_pop_size)
+  {
+    num_rows <- avg_pop_size - nrow(train_pop_list[[item]])
+    train_pop_list[[item]] <- bind_rows(train_pop_list[[item]], train_pop_list[[item]][sample(num_rows),])
+  } else {
+    num_rows <- avg_pop_size
+    train_pop_list[[item]] <- train_pop_list[[item]][sample(num_rows),]
+  }
+}
+detector_monthly_dists_list <- list()
+dist_list <- list()
+counter <- 3
+for (det in all_detectors){
+  counter <- counter+1
+  for (month in names(train_pop_list)){
+  dist_list[[month]] <- train_pop_list[[month]][,counter]
+  }
+  detector_monthly_dists_list[[det]] <- bind_cols(dist_list)
+}
+
+```
+
+# correlate the data over months
+
+```{r}
+  copula_time_corr_samples_list <- list()
+  time_correlated_train_list <- list()
+  counter <- 0
+  for (det in names(detector_monthly_dists_list)){
+    counter <- counter+1
+    #copula samples generating for eight months
+    norm_cop_obj <- normalCopula(param = as.numeric(time_corr_mat[counter,]), dispstr = "un", dim = length(given_months)) # create gaussian copula oject
+    copula_time_corr_samples_list[[det]] <- data.frame(rCopula(copula = norm_cop_obj , n = nrow(as.data.frame(detector_monthly_dists_list[[det]])))) #sample from copula object
+    
+    
+    #correlating the training data across eight months
+    time_correlated_train_list[[det]] <- CorrelateData(DetectorData = as.data.frame(detector_monthly_dists_list[[det]]), CopulaMatrix = as.data.frame(copula_time_corr_samples_list[[det]]))
+}
+```
+
+
+### test time correlated data
+```{r}
+
+cor(time_correlated_train_list[["011b"]]) # data passes the test of monthly correlation
+
+```
+
+### now retransforming time correlated data back to original format
+
+```{r}
+time_correlated_pop_list <- list()
+counter <- 0
+for (month in given_months){
+counter <- counter+1
+time_correlated_pop_list[[month]] <- lapply(time_correlated_train_list, function(df,month){df[,month]}, month = counter) %>% bind_cols
+time_correlated_pop_list[[month]] <- bind_cols(train_pop_list[[month]][,c("uid","label","month")], time_correlated_pop_list[[month]])
+}
+```
+
+# calculating the average detector to detector correlation across months
+
+```{r}
+
+
+
+```
+
