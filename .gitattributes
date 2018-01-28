@@ -1,1 +1,2 @@
--*- mode: R;-*-
+$ cat .gitattributes
+*.R linguist-language=R
