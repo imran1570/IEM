@@ -1,0 +1,4 @@
+Scenario 1 : Algo2 for first 5 organizations. Each model iteration 1 time.
+Scenario 2: Algo2 for first 5 organizations excluding week 34 & 35 from test data. Each model iteration 1 time.
+Scenario 3: Algo2 for first 50 organizations. Each model iteration 1 time. (Similar to scenario 1 with 50 runs)
+Scenario 4: (Called MultiIter5_Answers_Mohanad) Used Mohanad's 50 organizations (provided on 7/16). 5 iterations performed on each organization.

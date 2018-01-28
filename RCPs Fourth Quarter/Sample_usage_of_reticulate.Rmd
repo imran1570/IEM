@@ -1,0 +1,61 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(reticulate)
+```
+Note: On some systems the following may not be so nice! On this system, we changed the path to the Python installer previously so this now works, but other machines may require a `Sys.setenv` command.
+```{r}
+py_config()
+```
+
+```{r}
+python_tree_package <- import("sklearn.tree")
+```
+
+
+
+
+```{r}
+#new_decision_tree <- python_tree_package$DecisionTreeClassifier(max_depth = 4, class_weight = wts)
+```
+
+```{r}
+clf <- py_run_string("from sklearn import tree\nthe_clf=tree.DecisionTreeClassifier(max_depth=4, class_weight={1:1, 2:10})")$the_clf
+```
+
+```{r}
+pseudocode_generator <- py_run_string("from py_run_string import tree_to_code")$tree_to_code
+```
+
+
+
+```{r}
+X = as.matrix(trainSplit[,1:24])
+```
+
+
+```{r}
+y = as.integer(trainSplit[,25])
+```
+
+
+```{r}
+clf$fit(X, y)
+```
+
+```{r}
+clf$score(as.matrix(testSplit[,1:24]), as.integer(testSplit[,25]))
+```
+
+```{r}
+clf$predict(as.matrix(test[,1:24]))
+```
+
+```{r}
+sum(!clf$predict(as.matrix(test[,1:24])) == as.integer(test[,25]))
+```

@@ -1,0 +1,200 @@
+---
+title: "Answer Aggregation (July 18)"
+output: github_document
+---
+```{r}
+library(tidyverse)
+```
+
+```{r}
+percentile_80 <- function(x){return(quantile(x, 0.8))[[1]]}
+percentile_20 <- function(x){return(quantile(x, 0.2))[[1]]}
+```
+
+
+
+```{r}
+df_of_answers <- read_csv("MultiIter5_Answers_Mohanad_0.csv")
+df_of_answers
+
+```
+
+```{r, message=FALSE}
+list_of_iter_answers <- list()
+for(org_num in seq(0, 40)){
+  list_of_iter_answers[[org_num + 1]] <-  read_csv(stringr::str_c("MultiIter5_Answers_Mohanad_", org_num, ".csv"))
+}
+all_answers <- bind_rows(list_of_iter_answers)
+```
+
+```{r}
+one_iter_answer <- dplyr::slice(all_answers, seq(1, 205, 5))
+one_iter_answer
+```
+
+```{r}
+four_iter_answers <- dplyr::slice(all_answers, seq(205)[-seq(1, 205, 5)])
+four_iter_answers
+```
+
+```{r}
+four_iter_means <- four_iter_answers
+four_iter_means[["Organization"]] <- rep(seq(0,40), each = 4)
+four_iter_means
+```
+
+```{r}
+four_iter_means <- four_iter_means %>% group_by(Organization) %>% summarise_each(funs(mean))
+```
+
+
+```{r}
+qqplot(one_iter_answer[["Answer_6"]], four_iter_means[["Answer_6"]])
+```
+
+```{r}
+ks.test(one_iter_answer[["Answer_6"]], four_iter_means[["Answer_6"]])
+```
+```{r}
+ks.test(one_iter_answer[["Answer_7"]], four_iter_means[["Answer_7"]])
+```
+
+```{r}
+ks.test(one_iter_answer[["Answer_8"]], four_iter_means[["Answer_8"]])
+```
+
+```{r}
+ks.test(one_iter_answer[["Answer_9"]], four_iter_means[["Answer_9"]])
+```
+
+```{r}
+ks.test(one_iter_answer[["Answer_10"]], four_iter_means[["Answer_10"]])
+```
+
+```{r}
+t.test(one_iter_answer[["Answer_10"]], four_iter_means[["Answer_10"]])
+```
+
+```{r}
+t.test(one_iter_answer[["Answer_21"]], four_iter_means[["Answer_21"]])
+```
+
+
+
+```{r}
+answers_to_plot <- read_csv("MultiIter5Answers_for_first_40_orgs.csv")
+```
+
+```{r}
+answers_to_plot <- answers_to_plot %>% 
+  mutate(Organization = rep(seq(0,39), each = 5)) %>% 
+  group_by(Organization) %>%
+  summarise_each(funs(mean)) %>%
+  ungroup %>% 
+  gather(key = answer_num, value = answer_result, 2:22) %>%
+  mutate(answer_num = stringr::str_sub(answer_num, 8, -1)) %>%
+  mutate(answer_num = as.integer(answer_num))
+```
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.15, colour = "blue") + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (60% intervals)") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+```
+
+
+
+```{r}
+#ggsave("MultiIter5Answers_for_first_40_orgs.pdf", width = 12, height = 5)
+```
+
+```{r}
+comparison_df <- bind_rows(list(mutate(mutate(one_iter_answer, Organization = seq(0, 40)), iterations = "one"), mutate(four_iter_means, iterations = "four")))
+```
+```{r}
+comparison_df
+```
+
+```{r}
+comparison_df <- comparison_df %>% 
+  gather(key = answer_num, value = answer_result, 1:21) %>% 
+  mutate(answer_num = stringr::str_sub(answer_num, 8, -1)) %>% 
+  mutate(answer_num = as.integer(answer_num))
+  
+```
+
+```{r}
+comparison_df
+```
+
+```{r}
+ggplot(comparison_df) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result, color = iterations), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.15, position = position_dodge(width = 0.8), geom = "errorbar") + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (60% intervals)") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+ggsave("IterComparison_40_orgs.png", width = 12, height = 5)
+```
+
+
+
+```{r}
+ten_org_comparison_df = comparison_df %>% filter(Organization %in% seq(1:10))
+```
+
+```{r}
+ggplot(ten_org_comparison_df) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result, color = iterations), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.15, position = position_dodge(width = 0.7)) + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (60% intervals)") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+ggsave("IterComparison_10_orgs.png", width = 12, height = 5)
+```
+
+
+
+```{r, message=FALSE}
+list_of_iter_answers <- list()
+for(org_num in seq(0, 40)){
+  list_of_iter_answers[[org_num + 1]] <-  read_csv(stringr::str_c("MultiIter5_Answers_Mohanad_", org_num, ".csv"))
+}
+all_answers <- bind_rows(list_of_iter_answers)
+```
+
+
+```{r}
+answers_to_plot <- read_csv("MultiIter10Answers_for_first_20_orgs.csv")
+```
+
+```{r}
+answers_to_plot <- answers_to_plot %>% 
+  mutate(Organization = rep(seq(0,19), each = 10)) %>% 
+  group_by(Organization) %>%
+  summarise_each(funs(mean)) %>%
+  ungroup %>% 
+  gather(key = answer_num, value = answer_result, 2:22) %>%
+  mutate(answer_num = stringr::str_sub(answer_num, 8, -1)) %>%
+  mutate(answer_num = as.integer(answer_num))
+```
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.15, colour = "blue") + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (60% intervals)") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+ggsave("MultiIter10Answers_for_first_20_orgs.png", width = 12, height = 5)
+```
+
+```{r}
+answers_to_plot <- read_csv("MultiIter10Answers_for_first_20_orgs.csv")
+```
+
+```{r}
+answers_to_plot <- answers_to_plot %>% 
+  mutate(Organization = rep(seq(0,19), each = 10)) %>% 
+  gather(key = answer_num, value = answer_result, 1:21) %>%
+  mutate(answer_num = stringr::str_sub(answer_num, 8, -1)) %>%
+  mutate(answer_num = as.integer(answer_num))
+```
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = Organization, y = answer_result), fun.ymin = "min", fun.y = "mean", fun.ymax = "max", size = 0.05, colour = "blue") + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Organization", breaks = seq(0, 19), labels = seq(0, 19)) + ggtitle("Answers to questions (full range)") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank()) + facet_wrap(~answer_num)
+ggsave("MultiIter10Answers_for_first_20_orgs_by_org.png", width = 15, height = 15)
+```

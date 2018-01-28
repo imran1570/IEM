@@ -1,0 +1,52 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+Answers4Weights <- read_csv("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul24_DVersion_Case3_4weights_answers/4Weights_submittable.csv")
+AnswersAltWeights <- read_csv("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul24_DVersion_Case3_topWeightsOrg6_answers/AltWeights_submittable.csv")
+Answer3Weights <- read_csv("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul23_DVersion_Case3_3weights_answers/3weights_submittable.csv")
+AnswersZFperm <- read_csv("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14 Algo2 ZF Data 5 orgs 4 iters perm/ZF4iter_permed_submittable.csv")
+
+
+AnswersLateJuly25 <- read_csv("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul24_DVersion_Case3_4weights_answers/July25Night_submittable.csv")
+```
+
+
+
+
+```{r}
+TentativeSubmission <- bind_rows(Answers4Weights, AnswersAltWeights, Answer3Weights, AnswersZFperm)
+
+OptionalSubmission <- bind_rows(Answers4Weights, AnswersAltWeights, Answer3Weights, AnswersZFperm, AnswersLateJuly25)
+
+```
+
+```{r}
+write_csv(x = TentativeSubmission, path = "C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/Submission CSVs/tentative_submission.csv")
+write_csv(x = OptionalSubmission, path = "C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/Submission CSVs/optional_submission (includes new 5 orgs).csv")
+```
+
+
+
+```{r}
+all_RCP14_answers <- tidyr::gather(TentativeSubmission, key = answer_num, value = answer_result) %>% mutate(answer_num = as.integer(answer_num))
+```
+
+```{r}
+ggplot(all_RCP14_answers) +
+  geom_violin(aes(x = answer_num, group = answer_num, y = answer_result), draw_quantiles = c(0.2, 0.8), scale = "width") + scale_y_continuous("Estimate", limits = c(0, 1)) + 
+  scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) +
+   ggtitle("RCP14 Answers that were submitted") + labs(subtitle = "Includes 4 sets of estimates") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+```
+
+```{r}
+ggsave("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/Submission CSVs/SubmissionAnswers.png", width = 15, height = 5)
+```
+

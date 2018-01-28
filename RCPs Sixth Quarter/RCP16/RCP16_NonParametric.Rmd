@@ -1,0 +1,332 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+
+
+library(MASS)
+library(copula)
+library(BMS)
+library(readr)
+library(tidyverse)
+require(graphics)
+
+set.seed(123)
+ 
+# We will use the command mvrnorm to draw a matrix of variables
+ 
+# Let's keep it simple, 
+mu <- rep(0,4)
+Sigma <- matrix(.7, nrow=4, ncol=4) + diag(4)*.3
+ 
+rawvars <- mvrnorm(n=10000, mu=mu, Sigma=Sigma)
+ 
+cov(rawvars)
+cor(rawvars)
+# We can see our normal sample produces results very similar to our 
+#specified covariance levels.
+ 
+# No lets transform some variables
+pvars <- pnorm(rawvars)
+ 
+# Through this process we already have 
+cov(pvars)
+cor(pvars)
+# We can see that while the covariances have dropped significantly, 
+# the simply correlations are largely the same.
+ 
+plot(rawvars[,3], pvars[,2], main="Normal of Var 1 with probabilities of Var 2")
+
+```
+
+
+
+```{r}
+
+mu <- rep(0,4)
+Sigma <- matrix(.7, nrow=4, ncol=4) + diag(4)*.3
+ 
+norm_cop_ob <- normalCopula(P2p(Sigma), dim = nrow(Sigma), dispstr = "un")
+raw_cop_vars <- rCopula(norm_cop_ob, n = 10000)
+
+raw_cop_vars <- gen.gauss.cop(r = Sigma, n =  10000) 
+ 
+cov(raw_cop_vars)
+cor(raw_cop_vars)
+# We can see our normal sample produces results very similar to our 
+#specified covariance levels.
+ 
+# No lets transform some variables
+pvars <- pnorm(rawvars)
+ 
+# Through this process we already have 
+cov(pvars)
+cor(pvars)
+# We can see that while the covariances have dropped significantly, 
+# the simply correlations are largely the same.
+ 
+plot(rawvars[,1], raw_cop_vars[,2], main="Normal of Var 1 with probabilities of Var 2")
+
+```
+
+
+```{r}
+
+features_cleaned_colnames <- read_csv("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Sixth Quarter/RCP16/features_cleaned_colnames.csv")
+
+features <-  features_cleaned_colnames %>% filter(day !=21)
+
+features_dists_df = subset(features, select=-c(staff_id,day))
+
+continuous_detectors_df = as.data.frame(features_dists_df[, sapply(features_dists_df, class) != "integer"])
+
+continuous_detectors_names = colnames(continuous_detectors_df)
+
+discrete_detectors_df = as.data.frame(features_dists_df[, sapply(features_dists_df, class) == "integer"])
+
+discrete_detectors_names = colnames(discrete_detectors_df)
+
+corr_df = cor(features_dists_df, method = "pearson")
+
+continuous_corr_df = cor(continuous_detectors_df, method = "pearson")
+
+discrete_corr_df = cor(discrete_detectors_df, method = "pearson")
+
+
+
+
+counter = 0
+
+kernel_fit_list = list()
+
+for (det in colnames(continuous_detectors_df)){
+  
+  counter = counter + 1
+
+  vect = as.vector(continuous_detectors_df[,c(det)])
+  
+  #vect = vect[vect>0]
+  
+  #bw_used = bw.nrd(vect)
+
+  # Store the bandwith of the estimated KDE
+  kernel_fit_list[[det]] <- density(vect, n = dim(continuous_detectors_df)[1], from = 0)
+  
+  # means = sample(vect, length(vect), replace = TRUE)
+  # hist(rnorm(length(vect), mean = means, sd = kernel_fit_list[[det]]$bw), prob = TRUE)
+  # lines(density(rnorm(length(vect), mean = means, sd = kernel_fit_list[[det]]$bw), kernel = "gaussian", from = 0))
+  
+  
+
+}
+
+norm_cop_obj = normalCopula(param = P2p(continuous_corr_df), dispstr = "un", dim = dim(continuous_corr_df)[1])
+cop_samples = rCopula(copula = norm_cop_obj , n = kernel_fit_list[["SentAveSize"]]$n)
+
+correlated_dist_df = data.frame(matrix(data = 0, nrow = kernel_fit_list[["SentAveSize"]]$n, ncol = dim(continuous_corr_df)[1]))
+
+counter = 0
+
+for (det in names(kernel_fit_list)){
+  
+  counter = counter + 1
+  
+  fit <- kernel_fit_list[[det]]
+  N <- kernel_fit_list[[det]]$n + 10000
+
+  x.new <- rnorm(N, sample(continuous_detectors_df[,c(det)], size = N, replace = TRUE), fit$bw)
+
+  x.new = x.new[x.new>=0]
+
+  correlated_dist_df[,counter] = quantile(x = x.new, probs = cop_samples[,counter])
+  
+}
+
+correlated_dist_df[mapply(is.infinite, correlated_dist_df)] <- 0
+
+
+
+fit <- kernel_fit_list[["SentAveSize"]]
+N <- kernel_fit_list[["SentAveSize"]]$n + 3200
+
+x.new <- rnorm(N, sample(continuous_detectors_df[,c("SentAveSize")], size = N, replace = TRUE), fit$bw)
+
+
+x.new = x.new[x.new>=0]
+
+correlated_dist_df[,1] = quantile(x = x.new, probs = cop_samples[,1])
+
+summary(x.new)
+summary(continuous_detectors_df[,c("SentAveSize")])
+
+
+
+
+
+fit <- kernel_fit_list[["SentTotSize"]]
+N <- kernel_fit_list[["SentTotSize"]]$n + 10000
+
+x.new <- rnorm(N, mean = sample(continuous_detectors_df[,c("SentTotSize")], size = N, replace = TRUE), sd = fit$bw)
+
+
+x.new = x.new[x.new>=0]
+
+correlated_dist_df[,2] = quantile(x = x.new, probs = cop_samples[,2])
+
+summary(x.new)
+summary(continuous_detectors_df[,c("SentTotSize")])
+
+
+
+
+cor(continuous_detectors_df[,1], correlated_dist_df[,1])
+
+cor(continuous_detectors_df[,1], continuous_detectors_df[,2])
+
+cor(correlated_dist_df[,1], correlated_dist_df[,2])
+
+x.new <- x.new + abs(min(x.new))
+plot(density(x.new))
+lines(fit, col = "blue")
+```
+
+```{r}
+
+data("faithful")
+d <- density(faithful$eruptions, bw = "sj")
+d
+plot(d)
+
+plot(d, type = "n")
+polygon(d, col = "wheat")
+
+## Missing values:
+x <- xx <- faithful$eruptions
+x[i.out <- sample(length(x), 10)] <- NA
+doR <- density(x, bw = 0.15, na.rm = TRUE)
+lines(doR, col = "blue")
+points(xx[i.out], rep(0.01, 10))
+
+## Weighted observations:
+fe <- sort(faithful$eruptions) # has quite a few non-unique values
+## use 'counts / n' as weights:
+dw <- density(unique(fe), weights = table(fe)/length(fe), bw = d$bw)
+utils::str(dw) ## smaller n: only 126, but identical estimate:
+stopifnot(all.equal(d[1:3], dw[1:3]))
+
+## simulation from a density() fit:
+# a kernel density fit is an equally-weighted mixture.
+fit <- density(xx)
+N <- 1e6
+x.new <- rnorm(N, sample(xx, size = N, replace = TRUE), fit$bw)
+plot(fit)
+lines(density(x.new), col = "blue")
+
+
+(kernels <- eval(formals(density.default)$kernel))
+
+## show the kernels in the R parametrization
+plot (density(0, bw = 1), xlab = "",
+      main = "R's density() kernels with bw = 1")
+for(i in 2:length(kernels))
+   lines(density(0, bw = 1, kernel =  kernels[i]), col = i)
+legend(1.5,.4, legend = kernels, col = seq(kernels),
+       lty = 1, cex = .8, y.intersp = 1)
+
+## show the kernels in the S parametrization
+plot(density(0, from = -1.2, to = 1.2, width = 2, kernel = "gaussian"),
+     type = "l", ylim = c(0, 1), xlab = "",
+     main = "R's density() kernels with width = 1")
+for(i in 2:length(kernels))
+   lines(density(0, width = 2, kernel =  kernels[i]), col = i)
+legend(0.6, 1.0, legend = kernels, col = seq(kernels), lty = 1)
+
+##-------- Semi-advanced theoretic from here on -------------
+
+
+(RKs <- cbind(sapply(kernels,
+                     function(k) density(kernel = k, give.Rkern = TRUE))))
+100*round(RKs["epanechnikov",]/RKs, 4) ## Efficiencies
+
+bw <- bw.SJ(precip) ## sensible automatic choice
+plot(density(precip, bw = bw),
+     main = "same sd bandwidths, 7 different kernels")
+for(i in 2:length(kernels))
+   lines(density(precip, bw = bw, kernel = kernels[i]), col = i)
+
+## Bandwidth Adjustment for "Exactly Equivalent Kernels"
+h.f <- sapply(kernels, function(k)density(kernel = k, give.Rkern = TRUE))
+(h.f <- (h.f["gaussian"] / h.f)^ .2)
+## -> 1, 1.01, .995, 1.007,... close to 1 => adjustment barely visible..
+
+plot(density(precip, bw = bw),
+     main = "equivalent bandwidths, 7 different kernels")
+for(i in 2:length(kernels))
+   lines(density(precip, bw = bw, adjust = h.f[i], kernel = kernels[i]),
+         col = i)
+legend(55, 0.035, legend = kernels, col = seq(kernels), lty = 1)
+
+
+```
+
+
+
+```{r}
+
+# Sets the marginals.
+# The values are cumulative so for the first variable the first marginal will be .1, the second is .2, the third is .3, and the fourth is .4
+
+
+prob_df = apply(discrete_detectors_df, 2, calc_prob)
+
+marginal <- apply(discrete_detectors_df, 2, compute_marginals)
+
+cor(discrete_detectors_df)
+cor(marginal)
+# Checks the lower and upper bounds of the correlation coefficients.
+corrcheck(marginal)
+# Sets the correlation coefficients
+R <- matrix(cor(discrete_detectors_df)) # Correlation matrix
+n <- 100
+##Selects and ordinal sample with given correlation R and given marginals.
+m <- ordsample(n, marginal, R)
+##compare it with the pre-defined R
+cor(m)
+table(m[,1],m[,2])
+ 
+chisq.test(m)
+ 
+gbar < - tapply(m[,1], list(m[,1], m[,2]), length)
+ 
+par(mfrow=c(1,1))
+barplot(gbar, beside=T, col=cm.colors(4), main="Example Bar Chart of Counts by Group",xlab="Group",ylab="Frequency")
+
+```
+
+```{r}
+library(GenOrd)
+set.seed(1)
+# Sets the marginals.
+# The values are cumulative so for the first variable the first marginal will be .1, the second is .2, the third is .3, and the fourth is .4
+marginal <- list(c(0.1,0.3,0.6),c(0.4,0.7,0.9))
+# Checks the lower and upper bounds of the correlation coefficients.
+corrcheck(marginal)
+# Sets the correlation coefficients
+R <- matrix(c(1,-0.6,-0.6,1),2,2) # Correlation matrix
+n <- 100
+##Selects and ordinal sample with given correlation R and given marginals.
+m <- ordsample(n, marginal, R)
+##compare it with the pre-defined R
+cor(m)
+table(m[,1],m[,2])
+ 
+chisq.test(m)
+ 
+gbar <- tapply(m[,1], list(m[,1], m[,2]), length)
+ 
+par(mfrow=c(1,1))
+barplot(gbar, beside=T, col=cm.colors(4), main="Example Bar Chart of Counts by Group",xlab="Group",ylab="Frequency")
+```
+

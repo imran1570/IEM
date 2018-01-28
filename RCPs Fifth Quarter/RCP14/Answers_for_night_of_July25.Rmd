@@ -1,0 +1,93 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+last_org_currently_available <- 4
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+list_of_answer_dfs <- list()
+for(org_num in seq(0, last_org_currently_available)){
+  list_of_answer_dfs[[org_num + 1]] <- mutate(read_csv(stringr::str_c("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Moh_Jul25_Data_4Weights_answers/algo2_July25_answers_for_org_", org_num, ".csv")), Organization = org_num)
+}
+```
+
+```{r}
+AllOrg_df <- bind_rows(list_of_answer_dfs)
+write_csv(AllOrg_df, "C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Moh_Jul25_Data_4Weights_answers/dataframe_of_all_orgs.csv")
+```
+
+```{r}
+percentile_80 <- function(x){return(quantile(x, 0.8))[[1]]}
+percentile_20 <- function(x){return(quantile(x, 0.2))[[1]]}
+```
+
+
+
+
+```{r}
+answers_to_plot <- AllOrg_df %>% 
+  group_by(Organization) %>% 
+  summarize_all(mean) %>% 
+  ungroup %>% 
+  gather(key = answer_num, value = answer_result, 2:22) %>% 
+  mutate(answer_num = stringr::str_sub(answer_num, 8, -1)) %>% 
+  mutate(answer_num = as.integer(answer_num))
+```
+
+```{r}
+ggplot(answers_to_plot) + geom_point(aes(x = answer_num, 
+                                         y = answer_result, 
+                                         color = factor(Organization)), position = position_dodge(width=0.5)) +
+  #stat_summary(mapping = aes(x = answer_num, y = answer_result), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.25, colour = "black") + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("RCP14 Answers using 4 weights (60% intervals)") + labs(subtitle = "Calculated using 4 iterations for each of 5 organization", color = "Organization number") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+```
+
+```{r}
+ggsave("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Moh_Jul25_Data_4Weights_answers/Intervals_4Iter_weights_with_points.pdf", width = 15, height = 5)
+ggsave("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Moh_Jul25_Data_4Weights_answers/Intervals_4Iter_weights_with_points.png", width = 15, height = 5)
+```
+
+```{r}
+# ggplot(answers_to_plot) + 
+#   stat_summary(mapping = aes(x = answer_num, y = answer_result), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.15, colour = "blue") + 
+#   scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("RCP14 Answers using best 4 weights (60% intervals)") + labs(subtitle = "Calculated using 4 iterations for each organization", color = "Organization number") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+
+```
+
+```{r}
+# ggsave("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul24_DVersion_Case3_4weights_answers/Intervals_for_4_weights.pdf", width = 15, height = 5)
+# ggsave("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul24_DVersion_Case3_4weights_answers/Intervals_for_4_weights.png", width = 15, height = 5)
+```
+
+
+```{r}
+# ggplot(answers_to_plot) + geom_point(aes(x = answer_num, 
+#                                          y = answer_result, 
+#                                          color = factor(Organization)), position = position_dodge(width=0.5)) +
+#   stat_summary(mapping = aes(x = answer_num, y = answer_result), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.85, colour = "black") + 
+#   scale_y_continuous("Estimate (y axis transformed)", trans = "sqrt", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("RCP14 Answers using 4 weights (60% intervals)") + labs(subtitle = "Calculated using 10 iterations for each organization", color = "Organization number") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+```
+
+
+
+
+```{r}
+ggsave("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul24_DVersion_Case3_4weights_answers/Intervals_for_4_weights_adjY.pdf", width = 15, height = 5)
+ggsave("C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul24_DVersion_Case3_4weights_answers/Intervals_for_4_weights_adjY.png", width = 15, height = 5)
+```
+
+```{r}
+submittable_answers <- select(tidyr::spread(answers_to_plot, key = answer_num, value = answer_result), -Organization)
+```
+
+```{r}
+write_csv(x = submittable_answers, path = "C:/Users/Mimran/Google Drive/GMU SCITE/RCPs Fifth Quarter/RCP14/RCP14_algo2_Jul24_DVersion_Case3_4weights_answers/July25Night_submittable.csv")
+```

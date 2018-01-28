@@ -1,0 +1,1430 @@
+---
+title: "Experimentation on (Optimization based) Modified Histograms of RCP19"
+output: html_notebook
+---
+
+This notebook contains the code to check if we use optimization based modified histograms and then apply sampling techniques to it and then compare the means and strandard deviations of samples with the MIT-LL given means and standard deviations
+
+```{r}
+library(readr)
+library(stringr)
+```
+
+
+
+```{r}
+
+files_dir <- "C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19Data/"
+
+
+#60 continuous detectors
+continuous_detectors <-  c("005a","005b","005c","006a","006b","006c","007a","007b","007c","008a",
+                         "008b","008c","011a","011b","011c","014a","015a","020a","020b","020c",
+                         "020d","020e","021a","021b","021c","021d","024a","025a","026a","027a",
+                         "028a","029a","033a","034a","035a","036a","037a","038a","039a","040a",
+                         "041a","042a","043a","045a","050a","050b","050c","050d","051a","051b",
+                         "051c","051d","054a","055a","056a","057a","059a","060a","062a","063a")
+
+#82 discrete detectors
+discrete_detectors <-  c("001a","001b","001c","002a","002b","002c","003a","003b","003c","004a",
+                       "004b","004c","009a","009b","009c","010a","010b","010c","012a","012b",
+                       "012c","013a","013b","013c","016a","016b","016c","016d","016e","017a",
+                       "017b","017c","017d","018a","018b","018c","018d","018e","019a","019b",
+                       "019c","019d","022a","022b","022c","022d","022e","023a","023b","023c",
+                       "023d","030a","031a","032a","044a","046a","046b","046c","046d","047a",
+                       "047b","047c","047d","048a","048b","048c","048d","049a","049b","049c",
+                       "049d","052a","052b","052c","052d","053a","053b","053c","053d","058a",
+                       "061a","064a")
+
+weeks <- 9:9
+total_num_detectors <- length(continuous_detectors)+length(discrete_detectors)
+num_line_managers <- 177
+num_other <- 3127
+cont_det_counter <- 0
+disc_det_counter <- 0
+continuous_hist_list_line <- list()
+continuous_hist_list_other <- list()
+discrete_hist_list_line <- list()
+discrete_hist_list_other <- list()
+cont_detector_samples_line_df <- data.frame(matrix(NA, nrow = num_line_managers, ncol = length(continuous_detectors)))
+cont_detector_samples_other_df <- data.frame(matrix(NA, nrow=num_other, ncol = length(continuous_detectors)))
+disc_detector_samples_line_df <- data.frame(matrix(NA, nrow = num_line_managers, ncol = length(discrete_detectors)))
+disc_detector_samples_other_df <- data.frame(matrix(NA, nrow=num_other, ncol = length(discrete_detectors)))
+
+for(week in weeks){
+  
+  for(det in continuous_detectors){
+    cont_det_counter <- cont_det_counter + 1
+    file_name_line <- str_c("Week", week, "_det", det, "_LineManagement.csv")
+    file_name_other <- str_c("Week", week, "_det", det, "_Other.csv")
+    continuous_hist_list_line[[file_name_line]] <- suppressMessages(read_csv(str_c(files_dir, file_name_line)))
+    continuous_hist_list_other[[file_name_other]] <- suppressMessages(read_csv(str_c(files_dir, file_name_other)))
+    continuous_hist_line <- continuous_hist_list_line[[file_name_line]]
+    continuous_hist_other <- continuous_hist_list_other[[file_name_other]]
+    unbinned_data_vect <- c()
+    count_zeros <- continuous_hist_line$counts[continuous_hist_line$lower==0 & continuous_hist_line$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- continuous_hist_line[(continuous_hist_line$lower!=0 & continuous_hist_line$upper!=0) & (continuous_hist_line$counts!=0),]
+    for (i in 1:nrow(det_hist_no_zeros)){
+    unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = (det_hist_no_zeros$upper[i]+det_hist_no_zeros$lower[i])/2))
+    }
+    cont_detector_samples_line_df[,cont_det_counter] <- unbinned_data_vect
+    
+    unbinned_data_vect <- c()
+    count_zeros <- continuous_hist_other$counts[continuous_hist_other$lower==0 & continuous_hist_other$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- continuous_hist_other[(continuous_hist_other$lower!=0 & continuous_hist_other$upper!=0) & (continuous_hist_other$counts!=0),]
+    for (i in 1:nrow(det_hist_no_zeros)){
+    unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = (det_hist_no_zeros$upper[i]+det_hist_no_zeros$lower[i])/2))
+    }
+    cont_detector_samples_other_df[,cont_det_counter] <- unbinned_data_vect
+  }
+  colnames(cont_detector_samples_line_df) <- continuous_detectors
+  colnames(cont_detector_samples_other_df) <- continuous_detectors
+  
+  for(det in discrete_detectors){
+    disc_det_counter <- disc_det_counter + 1
+    file_name_line <- str_c("Week", week, "_det", det, "_LineManagement.csv")
+    file_name_other <- str_c("Week", week, "_det", det, "_Other.csv")
+    discrete_hist_list_line[[file_name_line]] <- suppressMessages(read_csv(str_c(files_dir, file_name_line)))
+    discrete_hist_list_other[[file_name_other]] <- suppressMessages(read_csv(str_c(files_dir, file_name_other)))
+    
+    detector_hist_line <- discrete_hist_list_line[[file_name_line]]
+    unbinned_data_vect <- c()
+    count_zeros <- detector_hist_line$counts[detector_hist_line$lower==0 & detector_hist_line$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- detector_hist_line[(detector_hist_line$lower!=0 & detector_hist_line$upper!=0) & (detector_hist_line$counts!=0),]
+    for (i in 1:nrow(det_hist_no_zeros)){
+    unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = (det_hist_no_zeros$upper[i]+det_hist_no_zeros$lower[i])/2))
+    }
+    disc_detector_samples_line_df[,disc_det_counter] <- round(unbinned_data_vect)
+    
+    detector_hist_other <- discrete_hist_list_other[[file_name_other]]
+    unbinned_data_vect <- c()
+    count_zeros <- detector_hist_other$counts[detector_hist_other$lower==0 & detector_hist_other$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- detector_hist_other[(detector_hist_other$lower!=0 & detector_hist_other$upper!=0) & (detector_hist_other$counts!=0),]
+    for (i in 1:nrow(det_hist_no_zeros)){
+    unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = (det_hist_no_zeros$upper[i]+det_hist_no_zeros$lower[i])/2))
+    }
+    disc_detector_samples_other_df[,disc_det_counter] <- round(unbinned_data_vect)
+  }
+  colnames(disc_detector_samples_line_df) <- discrete_detectors
+  colnames(disc_detector_samples_other_df) <- discrete_detectors
+}
+
+all_detector_samples_line <- bind_cols(list(cont_detector_samples_line_df, disc_detector_samples_line_df))
+all_detector_samples_line <- all_detector_samples_line[order(colnames(all_detector_samples_line))]
+all_detector_samples_other <- bind_cols(list(cont_detector_samples_other_df, disc_detector_samples_other_df))
+all_detector_samples_other <- all_detector_samples_other[order(colnames(all_detector_samples_other))]
+
+
+Week9_MeanStd_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19data/Week9_MeanStd_LineManagement.csv")
+
+Week9_MeanStd_Other <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19data/Week9_MeanStd_Other.csv")
+
+calculated_means_line <- apply(all_detector_samples_line, 2, mean)
+calculated_sd_line <- apply(all_detector_samples_line, 2, sd)
+calculated_means_other <- apply(all_detector_samples_other, 2, mean)
+calculated_sd_other <- apply(all_detector_samples_other, 2, sd)
+
+hist(all_detector_samples_other$`001a`[all_detector_samples_other$`001a`>100000], xlab = "Zoomed in right tail of distribution", main = "Detector: Number of Unblocked Web proxy Connections")
+calculated_means_other["001a"]
+calculated_sd_other["001a"]
+
+tmp <- row_randomizer_by_column(all_detector_samples_other)
+tmp$user_id <- 1:nrow(tmp)
+tmp$week <- rep(9, nrow(tmp))
+tmp$label <- rep(0, nrow(tmp))
+tmp <- tmp[c("user_id","week","label", colnames(all_detector_samples_other))]
+
+```
+
+
+
+
+```{r}
+
+files_dir <- "C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19DataOpt/"
+
+
+#60 continuous detectors
+continuous_detectors <-  c("005a","005b","005c","006a","006b","006c","007a","007b","007c","008a",
+                         "008b","008c","011a","011b","011c","014a","015a","020a","020b","020c",
+                         "020d","020e","021a","021b","021c","021d","024a","025a","026a","027a",
+                         "028a","029a","033a","034a","035a","036a","037a","038a","039a","040a",
+                         "041a","042a","043a","045a","050a","050b","050c","050d","051a","051b",
+                         "051c","051d","054a","055a","056a","057a","059a","060a","062a","063a")
+
+#82 discrete detectors
+discrete_detectors <-  c("001a","001b","001c","002a","002b","002c","003a","003b","003c","004a",
+                       "004b","004c","009a","009b","009c","010a","010b","010c","012a","012b",
+                       "012c","013a","013b","013c","016a","016b","016c","016d","016e","017a",
+                       "017b","017c","017d","018a","018b","018c","018d","018e","019a","019b",
+                       "019c","019d","022a","022b","022c","022d","022e","023a","023b","023c",
+                       "023d","030a","031a","032a","044a","046a","046b","046c","046d","047a",
+                       "047b","047c","047d","048a","048b","048c","048d","049a","049b","049c",
+                       "049d","052a","052b","052c","052d","053a","053b","053c","053d","058a",
+                       "061a","064a")
+
+weeks <- 10:10
+total_num_detectors <- length(continuous_detectors)+length(discrete_detectors)
+num_line_managers <- 177
+num_other <- 3127
+cont_det_counter <- 0
+disc_det_counter <- 0
+continuous_hist_list_line <- list()
+continuous_hist_list_other <- list()
+discrete_hist_list_line <- list()
+discrete_hist_list_other <- list()
+cont_detector_samples_line_df <- data.frame(matrix(NA, nrow = num_line_managers, ncol = length(continuous_detectors)))
+cont_detector_samples_other_df <- data.frame(matrix(NA, nrow=num_other, ncol = length(continuous_detectors)))
+disc_detector_samples_line_df <- data.frame(matrix(NA, nrow = num_line_managers, ncol = length(discrete_detectors)))
+disc_detector_samples_other_df <- data.frame(matrix(NA, nrow=num_other, ncol = length(discrete_detectors)))
+
+for(week in weeks){
+  
+  for(det in continuous_detectors){
+    cont_det_counter <- cont_det_counter + 1
+    file_name_line <- str_c("Week", week, "_det", det, "_LineManagement.csv")
+    file_name_other <- str_c("Week", week, "_det", det, "_Other.csv")
+    continuous_hist_list_line[[file_name_line]] <- suppressMessages(read_csv(str_c(files_dir, file_name_line)))
+    continuous_hist_list_other[[file_name_other]] <- suppressMessages(read_csv(str_c(files_dir, file_name_other)))
+    continuous_hist_line <- continuous_hist_list_line[[file_name_line]]
+    continuous_hist_other <- continuous_hist_list_other[[file_name_other]]
+    unbinned_data_vect <- c()
+    count_zeros <- continuous_hist_line$counts[continuous_hist_line$lower==0 & continuous_hist_line$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- continuous_hist_line[(continuous_hist_line$lower!=0 & continuous_hist_line$upper!=0) & (continuous_hist_line$counts!=0),]
+    for (i in 1:nrow(det_hist_no_zeros)){
+    unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = det_hist_no_zeros$x[i]))
+    }
+    cont_detector_samples_line_df[,cont_det_counter] <- unbinned_data_vect
+    
+    unbinned_data_vect <- c()
+    count_zeros <- continuous_hist_other$counts[continuous_hist_other$lower==0 & continuous_hist_other$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- continuous_hist_other[(continuous_hist_other$lower!=0 & continuous_hist_other$upper!=0) & (continuous_hist_other$counts!=0),]
+    for (i in 1:nrow(det_hist_no_zeros)){
+    unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = det_hist_no_zeros$x[i]))
+    }
+    cont_detector_samples_other_df[,cont_det_counter] <- unbinned_data_vect
+  }
+  colnames(cont_detector_samples_line_df) <- continuous_detectors
+  colnames(cont_detector_samples_other_df) <- continuous_detectors
+  
+  for(det in discrete_detectors){
+    disc_det_counter <- disc_det_counter + 1
+    file_name_line <- str_c("Week", week, "_det", det, "_LineManagement.csv")
+    file_name_other <- str_c("Week", week, "_det", det, "_Other.csv")
+    discrete_hist_list_line[[file_name_line]] <- suppressMessages(read_csv(str_c(files_dir, file_name_line)))
+    discrete_hist_list_other[[file_name_other]] <- suppressMessages(read_csv(str_c(files_dir, file_name_other)))
+    
+    detector_hist_line <- discrete_hist_list_line[[file_name_line]]
+    unbinned_data_vect <- c()
+    count_zeros <- detector_hist_line$counts[detector_hist_line$lower==0 & detector_hist_line$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- detector_hist_line[(detector_hist_line$lower!=0 & detector_hist_line$upper!=0) & (detector_hist_line$counts!=0),]
+    for (i in 1:nrow(det_hist_no_zeros)){
+    unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = det_hist_no_zeros$x[i]))
+    }
+    disc_detector_samples_line_df[,disc_det_counter] <- round(unbinned_data_vect)
+    
+    detector_hist_other <- discrete_hist_list_other[[file_name_other]]
+    unbinned_data_vect <- c()
+    count_zeros <- detector_hist_other$counts[detector_hist_other$lower==0 & detector_hist_other$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- detector_hist_other[(detector_hist_other$lower!=0 & detector_hist_other$upper!=0) & (detector_hist_other$counts!=0),]
+    for (i in 1:nrow(det_hist_no_zeros)){
+    unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = det_hist_no_zeros$x[i]))
+    }
+    disc_detector_samples_other_df[,disc_det_counter] <- round(unbinned_data_vect)
+  }
+  colnames(disc_detector_samples_line_df) <- discrete_detectors
+  colnames(disc_detector_samples_other_df) <- discrete_detectors
+}
+
+all_detector_samples_line <- bind_cols(list(cont_detector_samples_line_df, disc_detector_samples_line_df))
+all_detector_samples_line <- all_detector_samples_line[order(colnames(all_detector_samples_line))]
+all_detector_samples_other <- bind_cols(list(cont_detector_samples_other_df, disc_detector_samples_other_df))
+all_detector_samples_other <- all_detector_samples_other[order(colnames(all_detector_samples_other))]
+
+
+Week9_MeanStd_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19data/Week9_MeanStd_LineManagement.csv")
+
+Week9_MeanStd_Other <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19data/Week9_MeanStd_Other.csv")
+
+calculated_means_line <- apply(all_detector_samples_line, 2, mean)
+calculated_sd_line <- apply(all_detector_samples_line, 2, sd)
+calculated_means_other <- apply(all_detector_samples_other, 2, mean)
+calculated_sd_other <- apply(all_detector_samples_other, 2, sd)
+
+
+
+```
+
+
+```{r}
+print(calculated_means_line / Week9_MeanStd_LineManagement$Mean)
+```
+
+
+```{r}
+print(calculated_sd_line / Week9_MeanStd_LineManagement$Std)
+```
+
+```{r}
+print(calculated_means_other / Week9_MeanStd_Other$Mean)
+```
+
+```{r}
+print(calculated_sd_other / Week9_MeanStd_Other$Std)
+```
+
+
+
+```{r}
+
+files_dir <- "C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19DataOpt/"
+
+
+#60 continuous detectors
+continuous_detectors <-  c("005a","005b","005c","006a","006b","006c","007a","007b","007c","008a",
+                         "008b","008c","011a","011b","011c","014a","015a","020a","020b","020c",
+                         "020d","020e","021a","021b","021c","021d","024a","025a","026a","027a",
+                         "028a","029a","033a","034a","035a","036a","037a","038a","039a","040a",
+                         "041a","042a","043a","045a","050a","050b","050c","050d","051a","051b",
+                         "051c","051d","054a","055a","056a","057a","059a","060a","062a","063a")
+
+#82 discrete detectors
+discrete_detectors <-  c("001a","001b","001c","002a","002b","002c","003a","003b","003c","004a",
+                       "004b","004c","009a","009b","009c","010a","010b","010c","012a","012b",
+                       "012c","013a","013b","013c","016a","016b","016c","016d","016e","017a",
+                       "017b","017c","017d","018a","018b","018c","018d","018e","019a","019b",
+                       "019c","019d","022a","022b","022c","022d","022e","023a","023b","023c",
+                       "023d","030a","031a","032a","044a","046a","046b","046c","046d","047a",
+                       "047b","047c","047d","048a","048b","048c","048d","049a","049b","049c",
+                       "049d","052a","052b","052c","052d","053a","053b","053c","053d","058a",
+                       "061a","064a")
+
+weeks <- 9:9
+total_num_detectors <- length(continuous_detectors)+length(discrete_detectors)
+num_line_managers <- 177
+num_other <- 3127
+cont_det_counter <- 0
+disc_det_counter <- 0
+continuous_hist_list_line <- list()
+continuous_hist_list_other <- list()
+discrete_hist_list_line <- list()
+discrete_hist_list_other <- list()
+cont_detector_samples_line_df <- data.frame(matrix(NA, nrow = num_line_managers, ncol = length(continuous_detectors)))
+cont_detector_samples_other_df <- data.frame(matrix(NA, nrow=num_other, ncol = length(continuous_detectors)))
+disc_detector_samples_line_df <- data.frame(matrix(NA, nrow = num_line_managers, ncol = length(discrete_detectors)))
+disc_detector_samples_other_df <- data.frame(matrix(NA, nrow=num_other, ncol = length(discrete_detectors)))
+
+for(week in weeks){
+  
+  for(det in continuous_detectors){
+    cont_det_counter <- cont_det_counter + 1
+    file_name_line <- str_c("Week", week, "_det", det, "_LineManagement.csv")
+    file_name_other <- str_c("Week", week, "_det", det, "_Other.csv")
+    continuous_hist_list_line[[file_name_line]] <- suppressMessages(read_csv(str_c(files_dir, file_name_line)))
+    continuous_hist_list_other[[file_name_other]] <- suppressMessages(read_csv(str_c(files_dir, file_name_other)))
+    continuous_hist_line <- continuous_hist_list_line[[file_name_line]]
+    continuous_hist_other <- continuous_hist_list_other[[file_name_other]]
+    unbinned_data_vect <- c()
+    count_zeros <- continuous_hist_line$counts[continuous_hist_line$lower==0 & continuous_hist_line$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- continuous_hist_line[(continuous_hist_line$lower!=0 & continuous_hist_line$upper!=0) & (continuous_hist_line$counts!=0),]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(det_hist_no_zeros$x, det_hist_no_zeros$counts))
+    cont_detector_samples_line_df[,cont_det_counter] <- unbinned_data_vect
+    
+    unbinned_data_vect <- c()
+    count_zeros <- continuous_hist_other$counts[continuous_hist_other$lower==0 & continuous_hist_other$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- continuous_hist_other[(continuous_hist_other$lower!=0 & continuous_hist_other$upper!=0) & (continuous_hist_other$counts!=0),]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(det_hist_no_zeros$x, det_hist_no_zeros$counts))
+    cont_detector_samples_other_df[,cont_det_counter] <- unbinned_data_vect
+  }
+  colnames(cont_detector_samples_line_df) <- continuous_detectors
+  colnames(cont_detector_samples_other_df) <- continuous_detectors
+  
+  for(det in discrete_detectors){
+    disc_det_counter <- disc_det_counter + 1
+    file_name_line <- str_c("Week", week, "_det", det, "_LineManagement.csv")
+    file_name_other <- str_c("Week", week, "_det", det, "_Other.csv")
+    discrete_hist_list_line[[file_name_line]] <- suppressMessages(read_csv(str_c(files_dir, file_name_line)))
+    discrete_hist_list_other[[file_name_other]] <- suppressMessages(read_csv(str_c(files_dir, file_name_other)))
+    
+    detector_hist_line <- discrete_hist_list_line[[file_name_line]]
+    unbinned_data_vect <- c()
+    count_zeros <- detector_hist_line$counts[detector_hist_line$lower==0 & detector_hist_line$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- detector_hist_line[(detector_hist_line$lower!=0 & detector_hist_line$upper!=0) & (detector_hist_line$counts!=0),]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(det_hist_no_zeros$x, det_hist_no_zeros$counts))
+    disc_detector_samples_line_df[,disc_det_counter] <- round(unbinned_data_vect)
+    
+    detector_hist_other <- discrete_hist_list_other[[file_name_other]]
+    unbinned_data_vect <- c()
+    count_zeros <- detector_hist_other$counts[detector_hist_other$lower==0 & detector_hist_other$upper==0]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+    det_hist_no_zeros <- detector_hist_other[(detector_hist_other$lower!=0 & detector_hist_other$upper!=0) & (detector_hist_other$counts!=0),]
+    unbinned_data_vect <- c(unbinned_data_vect, rep(det_hist_no_zeros$x, det_hist_no_zeros$counts))
+    disc_detector_samples_other_df[,disc_det_counter] <- round(unbinned_data_vect)
+  }
+  colnames(disc_detector_samples_line_df) <- discrete_detectors
+  colnames(disc_detector_samples_other_df) <- discrete_detectors
+}
+
+all_detector_samples_line <- bind_cols(list(cont_detector_samples_line_df, disc_detector_samples_line_df))
+all_detector_samples_line <- all_detector_samples_line[order(colnames(all_detector_samples_line))]
+all_detector_samples_other <- bind_cols(list(cont_detector_samples_other_df, disc_detector_samples_other_df))
+all_detector_samples_other <- all_detector_samples_other[order(colnames(all_detector_samples_other))]
+
+
+Week9_MeanStd_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19data/Week9_MeanStd_LineManagement.csv")
+
+Week9_MeanStd_Other <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19data/Week9_MeanStd_Other.csv")
+
+calculated_means_line <- apply(all_detector_samples_line, 2, mean)
+calculated_sd_line <- apply(all_detector_samples_line, 2, sd)
+calculated_means_other <- apply(all_detector_samples_other, 2, mean)
+calculated_sd_other <- apply(all_detector_samples_other, 2, sd)
+
+
+
+```
+
+```{r}
+print(calculated_means_line / Week9_MeanStd_LineManagement$Mean)
+tmp <- calculated_means_line / Week9_MeanStd_LineManagement$Mean
+sum(tmp > 1.5 | tmp < 0.5)
+```
+
+
+```{r}
+print(calculated_sd_line / Week9_MeanStd_LineManagement$Std)
+tmp <- calculated_sd_line / Week9_MeanStd_LineManagement$Std
+sum(tmp > 1.5 | tmp < 0.5)
+```
+
+```{r}
+print(calculated_means_other / Week9_MeanStd_Other$Mean)
+tmp <- calculated_means_other / Week9_MeanStd_Other$Mean
+sum(tmp > 1.5 | tmp < 0.5)
+```
+
+```{r}
+print(calculated_sd_other / Week9_MeanStd_Other$Std)
+tmp <- calculated_sd_other / Week9_MeanStd_Other$Std
+sum(tmp > 1.5 | tmp < 0.5)
+```
+
+
+
+```{r}
+log_norm_samples <- rlnorm(n = num_other, meanlog = 2109.330988168, sdlog = 12027.1752894)
+
+r_t <- 2109.330988168 + rnorm(num_other, mean = 0, sd = 12027.1752894)
+
+Week17_det002c_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/Week17_det002c_LineManagement.csv")
+
+hist(Week17_det002c_LineManagement$p)
+
+qunif(p = rev(tmp), min = 0, max = last(Week17_det002c_LineManagement$upper)) %>% length
+tmp <- rep(Week17_det002c_LineManagement$p, Week17_det002c_LineManagement$counts)
+
+library(fitdistrplus)
+
+descdist(Week17_det002c_LineManagement$p, discrete = FALSE)
+
+fitdist(data=Week17_det002c_LineManagement$p, distr = "weibull")
+
+```
+
+
+
+
+```{r}
+ 
+
+# hist_files <- list.files(files_dir, pattern = "[_]det\\d{3}[a-z][_]")
+# 
+# hist_list <- list()
+# for (file in hist_files){
+#   hist_list[[file]] <- suppressMessages(read_csv(str_c(files_dir, file)))
+# }
+
+
+# continuous_hist_names_vect <- c()
+# for (det in continuous_detectors){
+#   continuous_hist_names_vect <- c(continuous_hist_names_vect, names(hist_list)[grep(det, names(hist_list))])
+# }
+# continuous_hist_list <- list()
+# for (elem in continuous_hist_names_vect){
+#    continuous_hist_list[[elem]] <- hist_list[[elem]]
+# }
+# discrete_hist_names_vect <- c()
+# for (det in discrete_detectors){
+#   discrete_hist_names_vect <- c(discrete_hist_names_vect, names(hist_list)[grep(det, names(hist_list))])
+# }
+# discrete_hist_list <- list()
+# for (elem in discrete_hist_names_vect){
+#    discrete_hist_list[[elem]] <- hist_list[[elem]]
+# }
+# 
+# counter <- 0
+# for(elem in names(continuous_hist_list)){
+# unbinned_data_vect <- c()
+# count_zeros <- Week9_det009a_LineManagement$counts[Week9_det009a_LineManagement$lower==0 & Week9_det009a_LineManagement$upper==0]
+# unbinned_data_vect <- c(unbinned_data_vect, rep(0, count_zeros))
+# det_hist_no_zeros <- Week9_det009a_LineManagement[(Week9_det009a_LineManagement$lower!=0 & Week9_det009a_LineManagement$upper!=0) & (Week9_det009a_LineManagement$counts!=0),]
+# for (i in 1:nrow(det_hist_no_zeros)){
+# unbinned_data_vect <- c(unbinned_data_vect, rtriangle(n=det_hist_no_zeros$counts[i], a = det_hist_no_zeros$lower[i], b = det_hist_no_zeros$upper[i], c = det_hist_no_zeros$x[i]))
+# }
+# unbinned_data_vect <- round(unbinned_data_vect)
+# }
+
+
+
+```
+
+```{r}
+library(Matrix) # isSymmetric
+library(matrixcalc) # is.positive.definite
+
+num_detectors <- 142
+
+det_to_det_corr <- matrix(1, nrow = num_detectors, ncol = num_detectors)
+
+counter <- 0
+for (row in 1:nrow(det_to_det_corr)){
+  
+  for (col in 1:ncol(det_to_det_corr)) {
+    if (row == col){
+      det_to_det_corr[row, col] <- 1
+    } else {
+      counter <- counter+1
+      det_to_det_corr[row, col] <- Week9_Correlations_LineManagement$`Pearson Correlation`[counter]
+    }
+  }
+}
+isSymmetric(det_to_det_corr)  
+is.positive.definite(det_to_det_corr)
+
+
+vec2symmat <- function(invec, diag = 1, byrow = TRUE) {
+  Nrow <- ceiling(sqrt(2*length(invec)))
+
+  if (!sqrt(length(invec)*2 + Nrow) %% 1 == 0) {
+    stop("invec is wrong length to create a square symmetrical matrix")
+  }
+
+  mempty <- matrix(0, nrow = Nrow, ncol = Nrow)
+  mindex <- matrix(sequence(Nrow^2), nrow = Nrow, ncol = Nrow, byrow = byrow)
+  if (isTRUE(byrow)) {
+    mempty[mindex[lower.tri(mindex)]] <- invec
+    mempty[lower.tri(mempty)] <- t(mempty)[lower.tri(t(mempty))]
+  } else {
+    mempty[mindex[upper.tri(mindex)]] <- invec
+    mempty[lower.tri(mempty)] <- t(mempty)[lower.tri(t(mempty))]
+  }
+
+  diag(mempty) <- diag
+  mempty
+}
+
+```
+
+```{r}
+Time_Correlations_Pearson_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19autocorrelation Dat/RCP19_time_correlations/Time_Correlations_Pearson_LineManagement.csv")
+
+#View(Time_Correlations_Pearson_LineManagement)
+
+det1a_weekly_corr_vect <- c(0.69, 0.49, 0.20, 0.53, 0.67, 0.27, 0.84, 0.54, 0.57, 0.30)
+det1a_weekly_corr_mat <- vec2symmat(invec = det1a_weekly_corr_vect)
+isSymmetric(det1a_weekly_corr_mat)  
+is.positive.definite(det1a_weekly_corr_mat)
+det1a_weekly_corr_chol_decomp <- chol(det1a_weekly_corr_mat)
+
+det1b_weekly_corr_vect <- c(0.07, 0.00, 0.00, 0.04, 0.40, 0.19, 0.09, 0.26, 0.07, 0.02)
+det1b_weekly_corr_mat <- vec2symmat(invec = det1b_weekly_corr_vect)
+isSymmetric(det1b_weekly_corr_mat)  
+is.positive.definite(det1b_weekly_corr_mat)
+det1b_weekly_corr_chol_decomp <- chol(det1b_weekly_corr_mat)
+
+det1c_weekly_corr_vect <- c(0.24, 0.09, 0.27, 0.26, 0.94, 0.53, 0.22, 0.54, 0.23, 0.47)
+det1c_weekly_corr_mat <- vec2symmat(invec = det1c_weekly_corr_vect)
+isSymmetric(det1c_weekly_corr_mat)  
+is.positive.definite(det1c_weekly_corr_mat)
+det1c_weekly_corr_chol_decomp <- chol(det1c_weekly_corr_mat)
+
+det2a_weekly_corr_vect <- c(0.41, -0.01, 0.02, 0.08, -0.02, 0.05, 0.13, 0.01, 0.00, 0.03)
+det2a_weekly_corr_mat <- vec2symmat(invec = det2a_weekly_corr_vect)
+isSymmetric(det2a_weekly_corr_mat)  
+is.positive.definite(det2a_weekly_corr_mat)
+det2a_weekly_corr_chol_decomp <- chol(det2a_weekly_corr_mat)
+
+
+
+```
+
+```{r}
+Week10_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19DataOptSamples/Week10_LineManagement.csv")
+Week11_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19DataOptSamples/Week11_LineManagement.csv")
+Week12_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19DataOptSamples/Week12_LineManagement.csv")
+Week13_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19DataOptSamples/Week13_LineManagement.csv")
+Week14_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Seventh Quarter/RCP19/RCP19DataOptSamples/Week14_LineManagement.csv")
+```
+
+```{r}
+det1a_weekly_uncorrelated_samples <- cbind(sample(Week10_LineManagement$det001a), sample(Week11_LineManagement$det001a), sample(Week12_LineManagement$det001a), sample(Week13_LineManagement$det001a), sample(Week14_LineManagement$det001a))
+colnames(det1a_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+#standard_gauss_samples <- matrix(rnorm(nrow(det1a_weekly_uncorrelated_samples)*ncol(det1a_weekly_uncorrelated_samples),mean=0,sd=1), nrow(det1a_weekly_uncorrelated_samples), ncol(det1a_weekly_uncorrelated_samples)) 
+
+det1a_weekly_correlated_samples <- det1a_weekly_uncorrelated_samples %*% det1a_weekly_corr_chol_decomp
+colnames(det1a_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(det1a_weekly_uncorrelated_samples, method = "pearson")
+cor(det1a_weekly_correlated_samples, method = "pearson")
+det1a_weekly_corr_mat
+  
+```
+
+```{r}
+
+det1b_weekly_uncorrelated_samples <- cbind(sample(Week10_LineManagement$det001b), sample(Week11_LineManagement$det001b), sample(Week12_LineManagement$det001b), sample(Week13_LineManagement$det001b), sample(Week14_LineManagement$det001b))
+colnames(det1b_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+det1b_weekly_correlated_samples <- det1b_weekly_uncorrelated_samples %*% det1b_weekly_corr_chol_decomp
+colnames(det1b_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(det1b_weekly_uncorrelated_samples, method = "pearson")
+cor(det1b_weekly_correlated_samples, method = "pearson")
+det1b_weekly_corr_mat
+
+```
+
+```{r}
+det1c_weekly_uncorrelated_samples <- cbind(sample(Week10_LineManagement$det001c), sample(Week11_LineManagement$det001c), sample(Week12_LineManagement$det001c), sample(Week13_LineManagement$det001c), sample(Week14_LineManagement$det001c))
+colnames(det1c_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+det1c_weekly_correlated_samples <- det1c_weekly_uncorrelated_samples %*% det1c_weekly_corr_chol_decomp
+colnames(det1c_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(det1c_weekly_uncorrelated_samples, method = "pearson")
+cor(det1c_weekly_correlated_samples, method = "pearson")
+det1c_weekly_corr_mat
+```
+
+```{r}
+det2a_weekly_uncorrelated_samples <- cbind(sample(Week10_LineManagement$det002a), sample(Week11_LineManagement$det002a), sample(Week12_LineManagement$det002a), sample(Week13_LineManagement$det002a), sample(Week14_LineManagement$det002a))
+colnames(det2a_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+det2a_weekly_correlated_samples <- det2a_weekly_uncorrelated_samples %*% det2a_weekly_corr_chol_decomp
+colnames(det2a_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(det2a_weekly_uncorrelated_samples, method = "pearson")
+cor(det2a_weekly_correlated_samples, method = "pearson")
+det2a_weekly_corr_mat
+```
+
+```{r}
+Week09_Correlations_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs seventh quarter/RCP19/RCP19data/Week9_Correlations_Other.csv")
+Week10_Correlations_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs seventh quarter/RCP19/RCP19data/Week10_Correlations_Other.csv")
+Week11_Correlations_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs seventh quarter/RCP19/RCP19data/Week11_Correlations_Other.csv")
+#Week12_Correlations_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs seventh quarter/RCP19/RCP19data/Week12_Correlations_LineManagement.csv")
+#Week13_Correlations_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs seventh quarter/RCP19/RCP19data/Week13_Correlations_LineManagement.csv")
+#Week14_Correlations_LineManagement <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs seventh quarter/RCP19/RCP19data/Week14_Correlations_LineManagement.csv")
+```
+
+
+```{r}
+
+num_detectors <- 142
+
+week09_det_to_det_corr <- matrix(1, nrow = num_detectors, ncol = num_detectors)
+counter <- 0
+for (row in 1:nrow(week09_det_to_det_corr)){
+  
+  for (col in 1:ncol(week09_det_to_det_corr)) {
+    if (row == col){
+      week09_det_to_det_corr[row, col] <- 1
+    } else {
+      counter <- counter+1
+      week09_det_to_det_corr[row, col] <- Week09_Correlations_LineManagement$`Pearson Correlation`[counter]
+    }
+  }
+}
+isSymmetric(week09_det_to_det_corr)  
+is.positive.definite(week09_det_to_det_corr)
+
+week10_det_to_det_corr <- matrix(1, nrow = num_detectors, ncol = num_detectors)
+counter <- 0
+for (row in 1:nrow(week10_det_to_det_corr)){
+  
+  for (col in 1:ncol(week10_det_to_det_corr)) {
+    if (row == col){
+      week10_det_to_det_corr[row, col] <- 1
+    } else {
+      counter <- counter+1
+      week10_det_to_det_corr[row, col] <- Week10_Correlations_LineManagement$`Pearson Correlation`[counter]
+    }
+  }
+}
+isSymmetric(week10_det_to_det_corr)  
+is.positive.definite(week10_det_to_det_corr)
+
+
+week11_det_to_det_corr <- matrix(1, nrow = num_detectors, ncol = num_detectors)
+counter <- 0
+for (row in 1:nrow(week11_det_to_det_corr)){
+  
+  for (col in 1:ncol(week11_det_to_det_corr)) {
+    if (row == col){
+      week11_det_to_det_corr[row, col] <- 1
+    } else {
+      counter <- counter+1
+      week11_det_to_det_corr[row, col] <- Week11_Correlations_LineManagement$`Pearson Correlation`[counter]
+    }
+  }
+}
+isSymmetric(week11_det_to_det_corr)  
+is.positive.definite(week11_det_to_det_corr)
+
+
+week12_det_to_det_corr <- matrix(1, nrow = num_detectors, ncol = num_detectors)
+counter <- 0
+for (row in 1:nrow(week12_det_to_det_corr)){
+  
+  for (col in 1:ncol(week12_det_to_det_corr)) {
+    if (row == col){
+      week12_det_to_det_corr[row, col] <- 1
+    } else {
+      counter <- counter+1
+      week12_det_to_det_corr[row, col] <- Week12_Correlations_LineManagement$`Pearson Correlation`[counter]
+    }
+  }
+}
+isSymmetric(week12_det_to_det_corr)  
+is.positive.definite(week12_det_to_det_corr)
+
+
+week13_det_to_det_corr <- matrix(1, nrow = num_detectors, ncol = num_detectors)
+counter <- 0
+for (row in 1:nrow(week13_det_to_det_corr)){
+  
+  for (col in 1:ncol(week13_det_to_det_corr)) {
+    if (row == col){
+      week13_det_to_det_corr[row, col] <- 1
+    } else {
+      counter <- counter+1
+      week13_det_to_det_corr[row, col] <- Week13_Correlations_LineManagement$`Pearson Correlation`[counter]
+    }
+  }
+}
+isSymmetric(week13_det_to_det_corr)  
+is.positive.definite(week13_det_to_det_corr)
+
+
+week14_det_to_det_corr <- matrix(1, nrow = num_detectors, ncol = num_detectors)
+counter <- 0
+for (row in 1:nrow(week14_det_to_det_corr)){
+  
+  for (col in 1:ncol(week14_det_to_det_corr)) {
+    if (row == col){
+      week14_det_to_det_corr[row, col] <- 1
+    } else {
+      counter <- counter+1
+      week14_det_to_det_corr[row, col] <- Week14_Correlations_LineManagement$`Pearson Correlation`[counter]
+    }
+  }
+}
+isSymmetric(week14_det_to_det_corr)  
+is.positive.definite(week14_det_to_det_corr)
+```
+
+
+```{r}
+library(psych)
+# H0 : no differences in correlation matrices from different weeks Or correlations are equal.
+cortest.jennrich(R1 = week10_det_to_det_corr, R2 = week11_det_to_det_corr, n1=num_other, n2 = num_other) 
+dim(week11_det_to_det_corr)
+```
+
+
+
+```{r}
+week10_detectorly_corr <- week10_det_to_det_corr[1:4, 1:4]
+week10_detectorly_corr_chol_decomp <- chol(week10_detectorly_corr)
+week11_detectorly_corr <- week11_det_to_det_corr[1:4, 1:4]
+week11_detectorly_corr_chol_decomp <- chol(week11_detectorly_corr)
+week12_detectorly_corr <- week12_det_to_det_corr[1:4, 1:4]
+week12_detectorly_corr_chol_decomp <- chol(week12_detectorly_corr)
+week13_detectorly_corr <- week13_det_to_det_corr[1:4, 1:4]
+week13_detectorly_corr_chol_decomp <- chol(week13_detectorly_corr)
+week14_detectorly_corr <- week14_det_to_det_corr[1:4, 1:4]
+week14_detectorly_corr_chol_decomp <- chol(week14_detectorly_corr)
+```
+
+
+```{r}
+week10_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week10")], det1b_weekly_correlated_samples[,c("week10")], det1c_weekly_correlated_samples[,c("week10")], det2a_weekly_correlated_samples[,c("week10")])
+colnames(week10_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+week10_detectorly_correlated_samples <- week10_detectorly_uncorrelated_samples %*% week10_detectorly_corr_chol_decomp
+colnames(week10_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week10_detectorly_uncorrelated_samples, method = "pearson")
+cor(week10_detectorly_correlated_samples, method = "pearson")
+week10_detectorly_corr
+
+week10_user_profiles <- week10_detectorly_correlated_samples
+
+```
+
+```{r}
+week11_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week11")], det1b_weekly_correlated_samples[,c("week11")], det1c_weekly_correlated_samples[,c("week11")], det2a_weekly_correlated_samples[,c("week11")])
+colnames(week11_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+week11_detectorly_correlated_samples <- week11_detectorly_uncorrelated_samples %*% week11_detectorly_corr_chol_decomp
+colnames(week11_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week11_detectorly_uncorrelated_samples, method = "pearson")
+cor(week11_detectorly_correlated_samples, method = "pearson")
+week11_detectorly_corr
+
+week11_user_profiles <- week11_detectorly_correlated_samples
+
+```
+
+```{r}
+week12_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week12")], det1b_weekly_correlated_samples[,c("week12")], det1c_weekly_correlated_samples[,c("week12")], det2a_weekly_correlated_samples[,c("week12")])
+colnames(week12_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+week12_detectorly_correlated_samples <- week12_detectorly_uncorrelated_samples %*% week12_detectorly_corr_chol_decomp
+colnames(week12_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week12_detectorly_uncorrelated_samples, method = "pearson")
+cor(week12_detectorly_correlated_samples, method = "pearson")
+week12_detectorly_corr
+
+week12_user_profiles <- week12_detectorly_correlated_samples
+
+```
+
+```{r}
+week13_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week13")], det1b_weekly_correlated_samples[,c("week13")], det1c_weekly_correlated_samples[,c("week13")], det2a_weekly_correlated_samples[,c("week13")])
+colnames(week13_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+week13_detectorly_correlated_samples <- week13_detectorly_uncorrelated_samples %*% week13_detectorly_corr_chol_decomp
+colnames(week13_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week13_detectorly_uncorrelated_samples, method = "pearson")
+cor(week13_detectorly_correlated_samples, method = "pearson")
+week13_detectorly_corr
+
+week13_user_profiles <- week13_detectorly_correlated_samples
+
+```
+
+```{r}
+week14_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week14")], det1b_weekly_correlated_samples[,c("week14")], det1c_weekly_correlated_samples[,c("week14")], det2a_weekly_correlated_samples[,c("week14")])
+colnames(week14_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+week14_detectorly_correlated_samples <- week14_detectorly_uncorrelated_samples %*% week14_detectorly_corr_chol_decomp
+colnames(week14_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week14_detectorly_uncorrelated_samples, method = "pearson")
+cor(week14_detectorly_correlated_samples, method = "pearson")
+week14_detectorly_corr
+
+week14_user_profiles <- week14_detectorly_correlated_samples
+
+```
+
+
+### Now testing the data for mean and standard deviations ###
+
+```{r}
+colMeans(week10_user_profiles) / colMeans(Week10_LineManagement[,1:4])
+
+mean_difference <- colMeans(week10_user_profiles) - colMeans(Week10_LineManagement[,1:4])
+
+#week10_user_profiles <- as.data.frame(week10_user_profiles)
+
+diff_week10_user_profiles <- sweep(week10_user_profiles, 2, mean_difference)
+
+colMeans(diff_week10_user_profiles) / colMeans(Week10_LineManagement[,1:4])
+
+
+
+colMeans(week11_user_profiles) / colMeans(Week11_LineManagement[,1:4])
+
+mean_difference <- colMeans(week11_user_profiles) - colMeans(Week11_LineManagement[,1:4])
+
+#week11_user_profiles <- as.data.frame(week11_user_profiles)
+
+diff_week11_user_profiles <- sweep(week11_user_profiles, 2, mean_difference)
+
+colMeans(diff_week11_user_profiles) / colMeans(Week11_LineManagement[,1:4])
+
+
+
+colMeans(week12_user_profiles) / colMeans(Week12_LineManagement[,1:4])
+
+mean_difference <- colMeans(week12_user_profiles) - colMeans(Week12_LineManagement[,1:4])
+
+#week12_user_profiles <- as.data.frame(week12_user_profiles)
+
+diff_week12_user_profiles <- sweep(week12_user_profiles, 2, mean_difference)
+
+colMeans(diff_week12_user_profiles) / colMeans(Week12_LineManagement[,1:4])
+
+
+
+colMeans(week13_user_profiles) / colMeans(Week13_LineManagement[,1:4])
+
+mean_difference <- colMeans(week13_user_profiles) - colMeans(Week13_LineManagement[,1:4])
+
+#week13_user_profiles <- as.data.frame(week13_user_profiles)
+
+diff_week13_user_profiles <- sweep(week13_user_profiles, 2, mean_difference)
+
+colMeans(diff_week13_user_profiles) / colMeans(Week13_LineManagement[,1:4])
+
+
+
+colMeans(week14_user_profiles) / colMeans(Week14_LineManagement[,1:4])
+
+mean_difference <- colMeans(week14_user_profiles) - colMeans(Week14_LineManagement[,1:4])
+
+#week14_user_profiles <- as.data.frame(week14_user_profiles)
+
+diff_week14_user_profiles <- sweep(week14_user_profiles, 2, mean_difference)
+
+colMeans(diff_week14_user_profiles) / colMeans(Week14_LineManagement[,1:4])
+
+```
+
+```{r}
+apply(week10_user_profiles, 2, sd) / apply(Week10_LineManagement[,1:4], 2, sd)
+
+apply(diff_week10_user_profiles, 2, sd) / apply(Week10_LineManagement[,1:4], 2, sd)
+
+apply(Week10_LineManagement[,1:4], 2, sd) / c(36980.51213, 46753.70985, 8222.954652, 1303.382328)
+
+
+sd_difference <- apply(week10_user_profiles, 2, sd) - apply(Week10_LineManagement[,1:4], 2, sd)
+
+dived_week10_user_profiles <- sweep(x = week10_user_profiles, MARGIN = 2, STATS = sd_difference, FUN = "/")
+
+apply(dived_week10_user_profiles, 2, sd) / apply(Week10_LineManagement[,1:4], 2, sd)
+
+```
+
+
+
+### Now the testing of data for weekly correlations ###
+
+```{r}
+
+cor(cbind(week10_user_profiles[,c("det001a")], week11_user_profiles[,c("det001a")], week12_user_profiles[,c("det001a")], week13_user_profiles[,c("det001a")], week14_user_profiles[,c("det001a")]), method = "pearson")
+det1a_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det001b")], week11_user_profiles[,c("det001b")], week12_user_profiles[,c("det001b")], week13_user_profiles[,c("det001b")], week14_user_profiles[,c("det001b")]), method = "pearson")
+det1b_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det001c")], week11_user_profiles[,c("det001c")], week12_user_profiles[,c("det001c")], week13_user_profiles[,c("det001c")], week14_user_profiles[,c("det001c")]), method = "pearson")
+det1c_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det002a")], week11_user_profiles[,c("det002a")], week12_user_profiles[,c("det002a")], week13_user_profiles[,c("det002a")], week14_user_profiles[,c("det002a")]), method = "pearson")
+det2a_weekly_corr_mat
+
+```
+
+### Now testing of data for detector to detector correlation ###
+```{r}
+
+cor(week10_user_profiles, method = "pearson")
+week10_detectorly_corr
+cor(diff_week10_user_profiles, method = "pearson")
+
+cor(week11_user_profiles, method = "pearson")
+week11_detectorly_corr
+
+cor(week12_user_profiles, method = "pearson")
+week12_detectorly_corr
+
+cor(week13_user_profiles, method = "pearson")
+week13_detectorly_corr
+
+cor(week14_user_profiles, method = "pearson")
+week14_detectorly_corr
+
+
+```
+
+
+```{r}
+apply(Week10_LineManagement[,1:4], 2, mean) / c(19576.09605, 8523.915254, 4076.644068, 428.1864407)
+```
+
+
+## Checking of old correlation implementation ##
+
+```{r}
+
+library(copula)
+
+CorrelateData <- function(DetectorData, CopulaMatrix){
+  #This is the copula function implemted by Zhengyang Fan
+  # gen.gauss.cop = function(r, n3){
+  #   rho <- 2 * sin(r * pi/6) 
+  #   P <- r     
+  #   d <- nrow(P)
+  #   U3 <- pnorm(matrix(rnorm(n3*d), ncol = d) %*% chol(P))
+  #   return(U3)
+  # }
+  numUser=dim(DetectorData)[1]
+  numVectors=dim(CopulaMatrix)[2]
+  #Generate copula
+  #CopulaMatrix=gen.gauss.cop(CorrelationMatrix,numUser)
+  VectorData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  sortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  SortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  Index2=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  CorrelatedDataMatrix=as.data.frame(matrix(0, nrow = numUser, ncol = numVectors))
+  for (i in 1:numVectors){
+    Index=sort.int(CopulaMatrix[,i], index.return=TRUE)
+    Index2=c(matrix(unlist(Index[2]),nr=1))
+    Index2T=t(Index2)
+    VectorData=DetectorData[,i]
+    sortedData=sort(VectorData)
+    SortedData=sortedData[Index2T]
+    SortedData[Index2T]=sortedData
+    CorrelatedDataMatrix[,i]=SortedData
+    VectorData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    sortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    SortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    #Index2=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  }
+  return(CorrelatedDataMatrix)	
+}
+
+```
+
+```{r}
+
+norm_cop_obj = normalCopula(param = P2p(det1a_weekly_corr_mat), dispstr = "un", dim = dim(det1a_weekly_corr_mat)[1])
+det1a_weekly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(det1a_weekly_uncorrelated_samples))
+
+det1a_weekly_uncorrelated_samples <- cbind((Week10_LineManagement$det001a), (Week11_LineManagement$det001a), (Week12_LineManagement$det001a), (Week13_LineManagement$det001a), (Week14_LineManagement$det001a))
+colnames(det1a_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+det1a_weekly_correlated_samples <- CorrelateData(DetectorData = det1a_weekly_uncorrelated_samples, CopulaMatrix = det1a_weekly_copula_mat)
+colnames(det1a_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+cor(det1a_weekly_correlated_samples, method = "spearman")
+det1a_weekly_corr_mat
+```
+
+```{r}
+norm_cop_obj = normalCopula(param = P2p(det1b_weekly_corr_mat), dispstr = "un", dim = dim(det1b_weekly_corr_mat)[1])
+det1b_weekly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(det1b_weekly_uncorrelated_samples))
+
+det1b_weekly_uncorrelated_samples <- cbind((Week10_LineManagement$det001b), (Week11_LineManagement$det001b), (Week12_LineManagement$det001b), (Week13_LineManagement$det001b), (Week14_LineManagement$det001b))
+colnames(det1b_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+det1b_weekly_correlated_samples <- CorrelateData(DetectorData = det1b_weekly_uncorrelated_samples, CopulaMatrix = det1b_weekly_copula_mat)
+colnames(det1b_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+cor(det1b_weekly_correlated_samples, method = "spearman")
+det1b_weekly_corr_mat
+```
+
+```{r}
+norm_cop_obj = normalCopula(param = P2p(det1c_weekly_corr_mat), dispstr = "un", dim = dim(det1c_weekly_corr_mat)[1])
+det1c_weekly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(det1c_weekly_uncorrelated_samples))
+
+det1c_weekly_uncorrelated_samples <- cbind((Week10_LineManagement$det001c), (Week11_LineManagement$det001c), (Week12_LineManagement$det001c), (Week13_LineManagement$det001c), (Week14_LineManagement$det001c))
+colnames(det1c_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+det1c_weekly_correlated_samples <- CorrelateData(DetectorData = det1c_weekly_uncorrelated_samples, CopulaMatrix = det1c_weekly_copula_mat)
+colnames(det1c_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+cor(det1c_weekly_correlated_samples, method = "spearman")
+det1c_weekly_corr_mat
+```
+
+
+```{r}
+norm_cop_obj = normalCopula(param = P2p(det2a_weekly_corr_mat), dispstr = "un", dim = dim(det2a_weekly_corr_mat)[1])
+det2a_weekly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(det2a_weekly_uncorrelated_samples))
+
+det2a_weekly_uncorrelated_samples <- cbind((Week10_LineManagement$det002a), (Week11_LineManagement$det002a), (Week12_LineManagement$det002a), (Week13_LineManagement$det002a), (Week14_LineManagement$det002a))
+colnames(det2a_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+det2a_weekly_correlated_samples <- CorrelateData(DetectorData = det2a_weekly_uncorrelated_samples, CopulaMatrix = det2a_weekly_copula_mat)
+colnames(det2a_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+cor(det2a_weekly_correlated_samples, method = "spearman")
+det2a_weekly_corr_mat
+```
+
+
+
+
+```{r}
+week10_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week10")], det1b_weekly_correlated_samples[,c("week10")], det1c_weekly_correlated_samples[,c("week10")], det2a_weekly_correlated_samples[,c("week10")])
+colnames(week10_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week10_detectorly_corr), dispstr = "un", dim = dim(week10_detectorly_corr)[1])
+week10_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week10_detectorly_uncorrelated_samples))
+week10_detectorly_correlated_samples <- CorrelateData(DetectorData = week10_detectorly_uncorrelated_samples, CopulaMatrix = week10_detectorly_copula_mat)
+colnames(week10_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week10_detectorly_uncorrelated_samples, method = "spearman")
+cor(week10_detectorly_correlated_samples, method = "spearman")
+week10_detectorly_corr
+
+week10_user_profiles <- week10_detectorly_correlated_samples
+```
+
+```{r}
+week11_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week11")], det1b_weekly_correlated_samples[,c("week11")], det1c_weekly_correlated_samples[,c("week11")], det2a_weekly_correlated_samples[,c("week11")])
+colnames(week11_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week11_detectorly_corr), dispstr = "un", dim = dim(week11_detectorly_corr)[1])
+week11_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week11_detectorly_uncorrelated_samples))
+week11_detectorly_correlated_samples <- CorrelateData(DetectorData = week11_detectorly_uncorrelated_samples, CopulaMatrix = week11_detectorly_copula_mat)
+colnames(week11_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week11_detectorly_uncorrelated_samples, method = "spearman")
+cor(week11_detectorly_correlated_samples, method = "spearman")
+week11_detectorly_corr
+
+week11_user_profiles <- week11_detectorly_correlated_samples
+```
+
+```{r}
+week12_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week12")], det1b_weekly_correlated_samples[,c("week12")], det1c_weekly_correlated_samples[,c("week12")], det2a_weekly_correlated_samples[,c("week12")])
+colnames(week12_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week12_detectorly_corr), dispstr = "un", dim = dim(week12_detectorly_corr)[1])
+week12_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week12_detectorly_uncorrelated_samples))
+week12_detectorly_correlated_samples <- CorrelateData(DetectorData = week12_detectorly_uncorrelated_samples, CopulaMatrix = week12_detectorly_copula_mat)
+colnames(week12_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week12_detectorly_uncorrelated_samples, method = "spearman")
+cor(week12_detectorly_correlated_samples, method = "spearman")
+week12_detectorly_corr
+
+week12_user_profiles <- week12_detectorly_correlated_samples
+```
+
+```{r}
+week13_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week13")], det1b_weekly_correlated_samples[,c("week13")], det1c_weekly_correlated_samples[,c("week13")], det2a_weekly_correlated_samples[,c("week13")])
+colnames(week13_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week13_detectorly_corr), dispstr = "un", dim = dim(week13_detectorly_corr)[1])
+week13_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week13_detectorly_uncorrelated_samples))
+week13_detectorly_correlated_samples <- CorrelateData(DetectorData = week13_detectorly_uncorrelated_samples, CopulaMatrix = week13_detectorly_copula_mat)
+colnames(week13_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week13_detectorly_uncorrelated_samples, method = "spearman")
+cor(week13_detectorly_correlated_samples, method = "spearman")
+week13_detectorly_corr
+
+week13_user_profiles <- week13_detectorly_correlated_samples
+```
+
+```{r}
+week14_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week14")], det1b_weekly_correlated_samples[,c("week14")], det1c_weekly_correlated_samples[,c("week14")], det2a_weekly_correlated_samples[,c("week14")])
+colnames(week14_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week14_detectorly_corr), dispstr = "un", dim = dim(week14_detectorly_corr)[1])
+week14_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week14_detectorly_uncorrelated_samples))
+week14_detectorly_correlated_samples <- CorrelateData(DetectorData = week14_detectorly_uncorrelated_samples, CopulaMatrix = week14_detectorly_copula_mat)
+colnames(week14_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week14_detectorly_uncorrelated_samples, method = "spearman")
+cor(week14_detectorly_correlated_samples, method = "spearman")
+week14_detectorly_corr
+
+week14_user_profiles <- week14_detectorly_correlated_samples
+```
+
+
+### Now the testing of data for weekly correlations ###
+
+```{r}
+
+cor(cbind(week10_user_profiles[,c("det001a")], week11_user_profiles[,c("det001a")], week12_user_profiles[,c("det001a")], week13_user_profiles[,c("det001a")], week14_user_profiles[,c("det001a")]), method = "spearman")
+det1a_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det001b")], week11_user_profiles[,c("det001b")], week12_user_profiles[,c("det001b")], week13_user_profiles[,c("det001b")], week14_user_profiles[,c("det001b")]), method = "spearman")
+det1b_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det001c")], week11_user_profiles[,c("det001c")], week12_user_profiles[,c("det001c")], week13_user_profiles[,c("det001c")], week14_user_profiles[,c("det001c")]), method = "spearman")
+det1c_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det002a")], week11_user_profiles[,c("det002a")], week12_user_profiles[,c("det002a")], week13_user_profiles[,c("det002a")], week14_user_profiles[,c("det002a")]), method = "spearman")
+det2a_weekly_corr_mat
+
+```
+
+### Now testing of data for detector to detector correlation ###
+```{r}
+
+cor(week10_user_profiles, method = "spearman")
+week10_detectorly_corr
+
+cor(week11_user_profiles, method = "spearman")
+week11_detectorly_corr
+
+cor(week12_user_profiles, method = "spearman")
+week12_detectorly_corr
+
+cor(week13_user_profiles, method = "spearman")
+week13_detectorly_corr
+
+cor(week14_user_profiles, method = "spearman")
+week14_detectorly_corr
+
+
+```
+
+
+### Implementing the above old correlation approch destroys one correlation. Holds only one.
+
+
+
+
+
+### Now testing with Cholesky Decomposition methodology for weekly /  time correlation and copula methodology for detector correlation
+
+
+```{r}
+
+library(copula)
+
+CorrelateData <- function(DetectorData, CopulaMatrix){
+  #This is the copula function implemted by Zhengyang Fan
+  # gen.gauss.cop = function(r, n3){
+  #   rho <- 2 * sin(r * pi/6) 
+  #   P <- r     
+  #   d <- nrow(P)
+  #   U3 <- pnorm(matrix(rnorm(n3*d), ncol = d) %*% chol(P))
+  #   return(U3)
+  # }
+  numUser=dim(DetectorData)[1]
+  numVectors=dim(CopulaMatrix)[2]
+  #Generate copula
+  #CopulaMatrix=gen.gauss.cop(CorrelationMatrix,numUser)
+  VectorData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  sortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  SortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  Index2=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  CorrelatedDataMatrix=as.data.frame(matrix(0, nrow = numUser, ncol = numVectors))
+  for (i in 1:numVectors){
+    Index=sort.int(CopulaMatrix[,i], index.return=TRUE)
+    Index2=c(matrix(unlist(Index[2]),nr=1))
+    Index2T=t(Index2)
+    VectorData=DetectorData[,i]
+    sortedData=sort(VectorData)
+    SortedData=sortedData[Index2T]
+    SortedData[Index2T]=sortedData
+    CorrelatedDataMatrix[,i]=SortedData
+    VectorData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    sortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    SortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    #Index2=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  }
+  return(CorrelatedDataMatrix)	
+}
+
+```
+
+```{r}
+det1a_weekly_uncorrelated_samples <- cbind(sample(Week10_LineManagement$det001a), sample(Week11_LineManagement$det001a), sample(Week12_LineManagement$det001a), sample(Week13_LineManagement$det001a), sample(Week14_LineManagement$det001a))
+colnames(det1a_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+#standard_gauss_samples <- matrix(rnorm(nrow(det1a_weekly_uncorrelated_samples)*ncol(det1a_weekly_uncorrelated_samples),mean=0,sd=1), nrow(det1a_weekly_uncorrelated_samples), ncol(det1a_weekly_uncorrelated_samples)) 
+
+det1a_weekly_correlated_samples <- det1a_weekly_uncorrelated_samples %*% det1a_weekly_corr_chol_decomp
+colnames(det1a_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(det1a_weekly_uncorrelated_samples, method = "spearman")
+cor(det1a_weekly_correlated_samples, method = "spearman")
+det1a_weekly_corr_mat
+
+det1a_weekly_uncorrelated_samples <- cbind(Week10_LineManagement$det001a, Week11_LineManagement$det001a, Week12_LineManagement$det001a, Week13_LineManagement$det001a, Week14_LineManagement$det001a)
+colnames(det1a_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+norm_cop_obj = normalCopula(param = P2p(det1a_weekly_corr_mat), dispstr = "un", dim = dim(det1a_weekly_corr_mat)[1])
+det1a_weekly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(det1a_weekly_uncorrelated_samples))
+det1a_weekly_correlated_samples <- CorrelateData(DetectorData = det1a_weekly_uncorrelated_samples, CopulaMatrix = det1a_weekly_copula_mat)
+colnames(det1a_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(week10_detectorly_uncorrelated_samples, method = "spearman")
+cor(week10_detectorly_correlated_samples, method = "spearman")
+week10_detectorly_corr
+
+week10_user_profiles <- week10_detectorly_correlated_samples
+  
+```
+
+```{r}
+
+det1b_weekly_uncorrelated_samples <- cbind(sample(Week10_LineManagement$det001b), sample(Week11_LineManagement$det001b), sample(Week12_LineManagement$det001b), sample(Week13_LineManagement$det001b), sample(Week14_LineManagement$det001b))
+colnames(det1b_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+det1b_weekly_correlated_samples <- det1b_weekly_uncorrelated_samples %*% det1b_weekly_corr_chol_decomp
+colnames(det1b_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(det1b_weekly_uncorrelated_samples, method = "spearman")
+cor(det1b_weekly_correlated_samples, method = "spearman")
+det1b_weekly_corr_mat
+
+```
+
+```{r}
+det1c_weekly_uncorrelated_samples <- cbind(sample(Week10_LineManagement$det001c), sample(Week11_LineManagement$det001c), sample(Week12_LineManagement$det001c), sample(Week13_LineManagement$det001c), sample(Week14_LineManagement$det001c))
+colnames(det1c_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+det1c_weekly_correlated_samples <- det1c_weekly_uncorrelated_samples %*% det1c_weekly_corr_chol_decomp
+colnames(det1c_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(det1c_weekly_uncorrelated_samples, method = "spearman")
+cor(det1c_weekly_correlated_samples, method = "spearman")
+det1c_weekly_corr_mat
+```
+
+```{r}
+det2a_weekly_uncorrelated_samples <- cbind(sample(Week10_LineManagement$det002a), sample(Week11_LineManagement$det002a), sample(Week12_LineManagement$det002a), sample(Week13_LineManagement$det002a), sample(Week14_LineManagement$det002a))
+colnames(det2a_weekly_uncorrelated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+det2a_weekly_correlated_samples <- det2a_weekly_uncorrelated_samples %*% det2a_weekly_corr_chol_decomp
+colnames(det2a_weekly_correlated_samples) <- c("week10", "week11", "week12", "week13", "week14")
+
+cor(det2a_weekly_uncorrelated_samples, method = "spearman")
+cor(det2a_weekly_correlated_samples, method = "spearman")
+det2a_weekly_corr_mat
+```
+
+
+
+```{r}
+week10_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week10")], det1b_weekly_correlated_samples[,c("week10")], det1c_weekly_correlated_samples[,c("week10")], det2a_weekly_correlated_samples[,c("week10")])
+colnames(week10_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week10_detectorly_corr), dispstr = "un", dim = dim(week10_detectorly_corr)[1])
+week10_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week10_detectorly_uncorrelated_samples))
+week10_detectorly_correlated_samples <- CorrelateData(DetectorData = week10_detectorly_uncorrelated_samples, CopulaMatrix = week10_detectorly_copula_mat)
+colnames(week10_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week10_detectorly_uncorrelated_samples, method = "spearman")
+cor(week10_detectorly_correlated_samples, method = "spearman")
+week10_detectorly_corr
+
+week10_user_profiles <- week10_detectorly_correlated_samples
+```
+
+```{r}
+week11_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week11")], det1b_weekly_correlated_samples[,c("week11")], det1c_weekly_correlated_samples[,c("week11")], det2a_weekly_correlated_samples[,c("week11")])
+colnames(week11_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week11_detectorly_corr), dispstr = "un", dim = dim(week11_detectorly_corr)[1])
+week11_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week11_detectorly_uncorrelated_samples))
+week11_detectorly_correlated_samples <- CorrelateData(DetectorData = week11_detectorly_uncorrelated_samples, CopulaMatrix = week11_detectorly_copula_mat)
+colnames(week11_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week11_detectorly_uncorrelated_samples, method = "spearman")
+cor(week11_detectorly_correlated_samples, method = "spearman")
+week11_detectorly_corr
+
+week11_user_profiles <- week11_detectorly_correlated_samples
+```
+
+```{r}
+week12_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week12")], det1b_weekly_correlated_samples[,c("week12")], det1c_weekly_correlated_samples[,c("week12")], det2a_weekly_correlated_samples[,c("week12")])
+colnames(week12_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week12_detectorly_corr), dispstr = "un", dim = dim(week12_detectorly_corr)[1])
+week12_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week12_detectorly_uncorrelated_samples))
+week12_detectorly_correlated_samples <- CorrelateData(DetectorData = week12_detectorly_uncorrelated_samples, CopulaMatrix = week12_detectorly_copula_mat)
+colnames(week12_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week12_detectorly_uncorrelated_samples, method = "spearman")
+cor(week12_detectorly_correlated_samples, method = "spearman")
+week12_detectorly_corr
+
+week12_user_profiles <- week12_detectorly_correlated_samples
+```
+
+```{r}
+week13_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week13")], det1b_weekly_correlated_samples[,c("week13")], det1c_weekly_correlated_samples[,c("week13")], det2a_weekly_correlated_samples[,c("week13")])
+colnames(week13_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week13_detectorly_corr), dispstr = "un", dim = dim(week13_detectorly_corr)[1])
+week13_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week13_detectorly_uncorrelated_samples))
+week13_detectorly_correlated_samples <- CorrelateData(DetectorData = week13_detectorly_uncorrelated_samples, CopulaMatrix = week13_detectorly_copula_mat)
+colnames(week13_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week13_detectorly_uncorrelated_samples, method = "spearman")
+cor(week13_detectorly_correlated_samples, method = "spearman")
+week13_detectorly_corr
+
+week13_user_profiles <- week13_detectorly_correlated_samples
+```
+
+```{r}
+week14_detectorly_uncorrelated_samples <- cbind(det1a_weekly_correlated_samples[,c("week14")], det1b_weekly_correlated_samples[,c("week14")], det1c_weekly_correlated_samples[,c("week14")], det2a_weekly_correlated_samples[,c("week14")])
+colnames(week14_detectorly_uncorrelated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+norm_cop_obj = normalCopula(param = P2p(week14_detectorly_corr), dispstr = "un", dim = dim(week14_detectorly_corr)[1])
+week14_detectorly_copula_mat <- rCopula(copula = norm_cop_obj , n = nrow(week14_detectorly_uncorrelated_samples))
+week14_detectorly_correlated_samples <- CorrelateData(DetectorData = week14_detectorly_uncorrelated_samples, CopulaMatrix = week14_detectorly_copula_mat)
+colnames(week14_detectorly_correlated_samples) <- c("det001a", "det001b", "det001c", "det002a")
+
+cor(week14_detectorly_uncorrelated_samples, method = "spearman")
+cor(week14_detectorly_correlated_samples, method = "spearman")
+week14_detectorly_corr
+
+week14_user_profiles <- week14_detectorly_correlated_samples
+```
+
+
+### Now the testing of data for weekly correlations ###
+
+```{r}
+
+cor(cbind(week10_user_profiles[,c("det001a")], week11_user_profiles[,c("det001a")], week12_user_profiles[,c("det001a")], week13_user_profiles[,c("det001a")], week14_user_profiles[,c("det001a")]), method = "pearson")
+det1a_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det001b")], week11_user_profiles[,c("det001b")], week12_user_profiles[,c("det001b")], week13_user_profiles[,c("det001b")], week14_user_profiles[,c("det001b")]), method = "pearson")
+det1b_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det001c")], week11_user_profiles[,c("det001c")], week12_user_profiles[,c("det001c")], week13_user_profiles[,c("det001c")], week14_user_profiles[,c("det001c")]), method = "pearson")
+det1c_weekly_corr_mat
+
+cor(cbind(week10_user_profiles[,c("det002a")], week11_user_profiles[,c("det002a")], week12_user_profiles[,c("det002a")], week13_user_profiles[,c("det002a")], week14_user_profiles[,c("det002a")]), method = "pearson")
+det2a_weekly_corr_mat
+
+```
+
+### Now testing of data for detector to detector correlation ###
+```{r}
+
+cor(week10_user_profiles, method = "spearman")
+week10_detectorly_corr
+
+cor(week11_user_profiles, method = "spearman")
+week11_detectorly_corr
+
+cor(week12_user_profiles, method = "spearman")
+week12_detectorly_corr
+
+cor(week13_user_profiles, method = "spearman")
+week13_detectorly_corr
+
+cor(week14_user_profiles, method = "spearman")
+week14_detectorly_corr
+
+
+```
+

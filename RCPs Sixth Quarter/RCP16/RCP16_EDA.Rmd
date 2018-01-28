@@ -1,0 +1,351 @@
+---
+title: "R Notebook for RCP16 EDA"
+output: github_document
+---
+
+
+```{r, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(dplyr)
+library(reshape2)
+library(rmarkdown)
+library(fitdistrplus)
+library(logspline)
+library(stringr)
+
+#render("RCP16_EDA.Rmd", output_format = "html_notebook")
+
+
+features_cleaned_colnames <- read_csv("features_cleaned_colnames.csv")
+
+features = features_cleaned_colnames
+
+```
+
+
+
+```{r}
+
+corr_df = cor(as.data.frame(features[,-1]))
+
+#summary(as.data.frame(features[,-1]))
+
+high_corr_df = corr_df
+
+#high_corr_df[high_corr_df <= 0.5 & high_corr_df >= -0.5] = NA
+
+```
+
+
+```{r}
+
+#corrplot::corrplot(cor(as.data.frame(features[,-1])), method="circle", type = "upper")
+corrplot::corrplot(high_corr_df, method = "square", type = "upper")
+
+```
+
+```{r}
+
+features = features %>% filter(day != 21)
+
+features = features[,-c(2)]
+
+melted_features = features %>% melt() %>% filter(value>0)
+
+ggplot(data = melt(melted_features), mapping = aes(x = value)) + 
+    geom_histogram(bins = 25) + facet_wrap(~variable, scales = 'free_x', ncol = 5)
+#beta dist to model percentage data
+
+```
+
+```{r}
+
+
+features = features %>% filter(day != 21)
+
+scaled_features = scale(features[,-c(1:2)])
+
+features[,c(3:28)] = scaled_features
+
+ggplot(data = melt(features, id.vars = c("staff_id", "day")), aes(x = day, y = value)) + 
+    stat_summary(fun.y = mean, geom = "line", aes(y = value)) + scale_x_continuous(breaks = seq(11, 21)) + facet_wrap(~variable, scales = 'free_y', ncol = 5)
+```
+
+
+
+
+
+
+
+```{r}
+unique(features[["day"]])
+```
+
+```{r}
+
+glimpse(features)
+
+features_dists_df = subset(features, select=-c(staff_id,day))
+
+
+
+#dist_obj = fitdistrplus::fitdist(features_dists_df[,1])
+
+hist(features_dists_df$Emails_Sent[features_dists_df$Emails_Sent>0], freq = FALSE)
+lines(density(features_dists_df$Emails_Sent[features_dists_df$Emails_Sent>0]))
+
+qqnorm(features_dists_df$Emails_Sent[features_dists_df$Emails_Sent>0])
+qqline(features_dists_df$Emails_Sent[features_dists_df$Emails_Sent>0])
+
+descdist(features_dists_df$Emails_Sent[features_dists_df$Emails_Sent>0], discrete = T)
+
+descdist(features_dists_df$SentAveSize[features_dists_df$SentAveSize>0])
+
+
+features_dists_df = as.data.frame(features_dists_df)
+for (col_name in colnames(features_dists_df)){
+vect = features_dists_df[,col_name]
+vect = vect[vect>0]
+descdist(vect)
+}
+
+plotdist(features_dists_df$Emails_Sent[features_dists_df$Emails_Sent>0], histo = T, demp = T)
+
+fit_obj = fitdist(features_dists_df$SentAveSize[features_dists_df$SentAveSize>0], distr = "lnorm")
+
+summary(fit_obj)
+
+plot(fit_obj)
+
+```
+
+
+```{r}
+
+det1 = features_dists_df$SentAveSize[features_dists_df$SentAveSize>0]
+
+fw <- fitdist(det1, "weibull")
+fg <- fitdist(det1, "gamma")
+fln <- fitdist(det1, "lnorm")
+#par(mfrow = c(2, 2))
+plot.legend <- c("Weibull", "lognormal", "gamma")
+denscomp(list(fw, fln, fg), legendtext = plot.legend)
+qqcomp(list(fw, fln, fg), legendtext = plot.legend)
+cdfcomp(list(fw, fln, fg), legendtext = plot.legend)
+ppcomp(list(fw, fln, fg), legendtext = plot.legend)
+
+
+```
+
+```{r}
+ 
+summary(fw)
+summary(fg)
+summary(fln)
+
+```
+
+```{r}
+
+gofstatobj = gofstat(list(fw, fg, fln), fitnames = c("weibull", "gamma", "lognormal"))
+
+gofstatobj$cvm
+
+```
+
+
+
+
+```{r}
+ggplot(data = melt(select(features, -day)) %>% filter(value>0), mapping = aes(x = value)) + 
+    geom_histogram(bins = 25) + facet_wrap(~variable, scales = 'free_x', ncol = 5)
+```
+
+
+```{r}
+
+
+continuous_dist_names = c("norm", "unif", "exp", "logis", "lnorm", "gamma", "weibull")
+
+discrete_dist_names = c("negative binomial", "poisson")
+
+detectors = filter(features_cleaned_colnames , day != 21)
+
+detectors = as.data.frame(subset(features_cleaned_colnames, select = c(-staff_id,-day)))
+
+continuous_detectors_df = detectors[, sapply(detectors, class) != "integer"]
+
+discrete_detectors_df = detectors[, sapply(detectors, class) == "integer"]
+
+
+
+det_counter = 0
+
+dist_counter = 0
+
+dist_fit_obj_list = list()
+
+fit_stat_df_list = list()
+
+dist_fit_params_df_list = list()
+
+for (det in colnames(continuous_detectors_df)){
+  
+  det_counter = det_counter + 1
+  
+  for (dist in  continuous_dist_names){
+    
+    dist_counter = dist_counter + 1
+    
+    # if (dist == c("beta")){
+    #   #fitdist(continuous_detectors_df[,c(det)], distr = dist, start = 0)
+    #   dist_fit_obj[[str_c(det, dist)]] = NULL
+    #   continuous_dist_names[dist_counter] = NA
+    # 
+    #   } else {
+    
+    vect = continuous_detectors_df[,c(det)]
+    
+    vect = vect[vect>0]
+    
+    dist_fit_obj_list[[str_c(det, dist)]] = fitdist(vect, distr = dist)
+    
+    dist_fit_params_df_list[[str_c(det, dist)]] = fitdist(vect, distr = dist)
+    
+    #}
+    
+    
+  }
+  
+  gofstatobj = gofstat(as.list(dist_fit_obj_list), fitnames = continuous_dist_names)
+  
+  fit_stat_df_list[[str_c(det)]] = data.frame(rep_len(det, length(continuous_dist_names)), continuous_dist_names, gofstatobj$ks, gofstatobj$cvm, gofstatobj$ad, gofstatobj$aic, gofstatobj$bic)
+  
+  dist_counter = 0
+  dist_fit_obj_list = list()
+}
+
+fit_stat_df = plyr::rbind.fill(fit_stat_df_list)
+
+
+```
+
+
+```{r}
+
+dist_fit_params_df_list[["SentAveSizeweibull"]]
+
+View(fit_stat_df_list[["SentAveSize"]])
+
+```
+
+
+```{r}
+
+
+
+# fitting the kernel to data. Ref: https://stats.stackexchange.com/questions/82797/how-to-draw-random-samples-from-a-non-parametric-estimated-distribution
+
+
+library(epandist) # for epanechnikov dist
+library(nortest) # for ad.test
+library(CDFt) # for cramer von mises
+
+set.seed(123)
+
+# this chunk is with fitting epanechnikov kernel
+counter = 0
+
+bw = c()
+
+means = c()
+
+for (det in colnames(continuous_detectors_df)[1]){
+  
+  counter = counter + 1
+
+  vect = continuous_detectors_df[,c(det)]
+    
+  #vect = vect[vect>0]  
+  
+  hist(vect, prob = TRUE)
+  lines(density(vect, kernel = "epanechnikov"))
+
+  # Store the bandwith of the estimated KDE
+  bw <- density(vect, kernel = "epanechnikov")$bw
+  
+  means = sample(vect, length(vect), replace = TRUE)
+  hist(repan(length(vect), mu = means, r = bw), prob = TRUE)
+  lines(density(repan(length(vect), mu = means, r = bw), kernel = "epanechnikov"))
+
+}
+
+ks.test(repan(length(vect), mu = means, r = bw), vect)
+
+
+res <- CramerVonMisesTwoSamples(repan(length(vect), mu = means, r = bw), vect)
+pVal = 1/6*exp(-res)
+
+
+# this chunk is for fitting the gaussian kernel to the data
+counter = 0
+
+bw = c()
+
+means = c()
+
+for (det in colnames(continuous_detectors_df)[1]){
+  
+  counter = counter + 1
+
+  vect = continuous_detectors_df[,c(det)]
+    
+  #vect = vect[vect>0]  
+  
+  hist(vect, prob = TRUE)
+  lines(density(vect))
+
+  # Store the bandwith of the estimated KDE
+  bw <- density(vect)$bw
+  
+  means = sample(vect, length(vect), replace = TRUE)
+  hist(rnorm(length(vect), mean = means, sd = bw), prob = TRUE)
+  lines(density(rnorm(length(vect), mean = means, sd = bw)))
+
+}
+
+#rweibull(n = length(vect), shape = 1.443557, scale = 27.792389) # distribution estimated by fitdistrplus
+
+ks1 = ks.test(rnorm(length(vect), mean = means, sd = bw), vect)
+
+ks2 = ks.test(rweibull(n = length(vect), shape = 1.443557, scale = 27.792389), vect)
+
+
+res1 <- CramerVonMisesTwoSamples(rnorm(length(vect), mean = means, sd = bw), vect)
+pVal1 = 1/6*exp(-res1)
+pVal1
+
+
+res2 <- CramerVonMisesTwoSamples(rweibull(n = length(vect), shape = 1.443557, scale = 27.792389), vect)
+pVal2 = 1/6*exp(-res2)
+pVal2
+
+```
+
+```{r}
+
+library(copula)
+
+
+normalCopula()
+
+```
+
+
+
+
+
+
+
+

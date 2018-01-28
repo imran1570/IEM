@@ -1,0 +1,45 @@
+---
+title: "Old Correlation Implemetation Testing"
+output: html_notebook
+---
+
+
+```{r}
+
+CorrelateData <- function(DetectorData, CopulaMatrix){
+  #This is the copula function implemted by Zhengyang Fan
+  # gen.gauss.cop = function(r, n3){
+  #   rho <- 2 * sin(r * pi/6) 
+  #   P <- r     
+  #   d <- nrow(P)
+  #   U3 <- pnorm(matrix(rnorm(n3*d), ncol = d) %*% chol(P))
+  #   return(U3)
+  # }
+  numUser=dim(DetectorData)[1]
+  numVectors=dim(CopulaMatrix)[2]
+  #Generate copula
+  #CopulaMatrix=gen.gauss.cop(CorrelationMatrix,numUser)
+  VectorData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  sortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  SortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  Index2=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  CorrelatedDataMatrix=as.data.frame(matrix(0, nrow = numUser, ncol = numVectors))
+  for (i in 1:numVectors){
+    Index=sort.int(CopulaMatrix[,i], index.return=TRUE)
+    Index2=c(matrix(unlist(Index[2]),nr=1))
+    Index2T=t(Index2)
+    VectorData=DetectorData[,i]
+    sortedData=sort(VectorData)
+    SortedData=sortedData[Index2T]
+    SortedData[Index2T]=sortedData
+    CorrelatedDataMatrix[,i]=SortedData
+    VectorData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    sortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    SortedData=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+    #Index2=as.data.frame(matrix(0, nrow = numUser, ncol = 1))
+  }
+  return(CorrelatedDataMatrix)	
+}
+
+```
+

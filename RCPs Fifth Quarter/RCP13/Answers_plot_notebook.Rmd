@@ -1,0 +1,139 @@
+---
+title: "R Notebook"
+output: github_document
+---
+
+ 
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+answers_to_plot <- read_csv("C:/Users/Mimran/OneDrive - George Mason University/C4I PC Backup/SCITE/RCPs Fifth Quarter/RCP13/Dev/Attempt_at_10_answers.csv")
+```
+
+```{r}
+answers_to_plot <- answers_to_plot %>% 
+  gather(key = answer_num, value = answer_result, 2:22) %>% 
+  mutate(answer_num = stringr::str_sub(answer_num, 8, -1)) %>% 
+  mutate(answer_num = as.integer(answer_num))
+  
+```
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(answer_num, answer_result), fun.ymin = "min", fun.y = "mean", fun.ymax = "max", size = 0.2) + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + theme_bw()
+```
+
+```{r}
+ggsave("Answers_plot.pdf", width = 10, height = 3)
+```
+
+
+```{r}
+answers_to_plot <- read_csv("Attempt_at_answer_39.csv")
+```
+
+```{r}
+answers_to_plot <- answers_to_plot %>% 
+  gather(key = answer_num, value = answer_result, 2:22) %>% 
+  mutate(answer_num = stringr::str_sub(answer_num, 8, -1)) %>% 
+  mutate(answer_num = as.integer(answer_num))
+  
+```
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(answer_num, answer_result), fun.ymin = "min", fun.y = "mean", fun.ymax = "max", size = 0.2) + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + theme_bw()
+```
+
+
+
+
+
+
+```{r}
+answers_to_plot <- read_csv("July12Answers.csv")
+```
+
+```{r}
+answers_to_plot <- answers_to_plot %>% 
+  gather(key = answer_num, value = answer_result, 3:23) %>% 
+  mutate(answer_num = stringr::str_sub(answer_num, 8, -1)) %>% 
+  mutate(answer_num = as.integer(answer_num))
+  
+```
+
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result, colour = factor(training_org)), fun.ymin = "min", fun.y = "mean", fun.ymax = "max", size = 0.3, position = position_dodge(width = 1)) + scale_colour_discrete("Training Organization") +
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (full range displayed)") + theme_bw() + theme(legend.position = "bottom")
+```
+
+```{r}
+ggsave("Range_of_answers_Jul12.pdf", width = 12, height = 5)
+```
+
+```{r}
+percentile_80 <- function(x){return(quantile(x, 0.8))[[1]]}
+percentile_20 <- function(x){return(quantile(x, 0.2))[[1]]}
+```
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result, colour = factor(training_org)), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.02, position = position_dodge(width = 0.9)) + scale_colour_discrete("Training Organization") +
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (60% intervals)") + theme_bw() + theme(legend.position = "bottom")
+```
+
+```{r}
+ggsave("Intervals_for_answers_Jul12.pdf", width = 12, height = 5)
+```
+
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result, colour = factor(testing_org)), fun.ymin = "min", fun.y = "mean", fun.ymax = "max", size = 0.02, position = position_dodge(width = 0.9)) + scale_colour_discrete("Testing Organization") +
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (full range displayed)") + theme_bw() + theme(legend.position = "bottom")
+```
+
+
+
+
+```{r}
+ggsave("Range_of_answers_Jul12 (conditional on testing organization).pdf", width = 12, height = 5)
+```
+
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result, colour = factor(testing_org)), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.02, position = position_dodge(width = 0.9)) + scale_colour_discrete("Testing Organization") +
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (60% intervals)") + theme_bw() + theme(legend.position = "bottom")
+```
+
+
+
+
+```{r}
+ggsave("Intervals_for_answers_Jul12 (conditional on testing organization).pdf", width = 12, height = 5)
+```
+
+
+
+```{r}
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result), fun.ymin = percentile_20, fun.y = "mean", fun.ymax = percentile_80, size = 0.2, colour = "blue") + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (60% intervals)") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+
+ggplot(answers_to_plot) + 
+  stat_summary(mapping = aes(x = answer_num, y = answer_result), fun.ymin = "min", fun.y = "mean", fun.ymax = "max", size = 0.2, colour = "blue") + 
+  scale_y_continuous("Estimate", limits = c(0, 1)) + scale_x_continuous("Question", breaks = seq(1, 21), labels = seq(1, 21)) + ggtitle("Answers to questions (full range)") + theme_bw() + theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+```
+
+```{r}
+ggsave("Aggregated_Intervals.pdf", width = 12, height = 5)
+ggsave("Aggregated_Intervals.png", width = 12, height = 5)
+```
